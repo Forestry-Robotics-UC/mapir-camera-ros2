@@ -92,48 +92,34 @@ with a valid but uncalibrated CameraInfo.
 ## Running the Node
 
 Direct execution:
-
-ros2 run mapir_camera_ros2 camera_node --ros-args -r __ns:=/mapir -p debug:=true
-
+```
+ros2 run mapir_camera_ros2 camera_node 
+```
 Debug with explicit log level:
-
+```
 ros2 run mapir_camera_ros2 camera_node --ros-args --log-level mapir_camera:=debug -r __ns:=/mapir -p debug:=true
-
----
-
+```
 ## Launch File
-
+```
 ros2 launch mapir_camera_ros2 mapir_camera.launch.py namespace:=mapir debug:=true qos_best_effort:=true camera_info_url:=file:///root/.ros/camera_info/mapir3.yaml
-
----
-
-## Viewing the Image Stream
-
-Recommended (headless / container-safe):
-
-ros2 run rqt_image_view rqt_image_view
-
-Select:
-/mapir/image_raw
-
----
+```
 
 ## Debugging Tips
 
 Check negotiated formats:
-
+```
 v4l2-ctl --device=/dev/video0 --list-formats-ext
-
+```
 Verify publishing:
-
+```
 ros2 topic info /mapir/image_raw -v  
 ros2 topic hz /mapir/image_raw
-
+```
 Run without rebuild (fast iteration):
 
+```
 python3 -m mapir_camera_ros2.camera_node --ros-args -r __ns:=/mapir -p debug:=true
-
----
+```
 
 ## License
 
