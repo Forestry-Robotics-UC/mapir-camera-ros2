@@ -1,0 +1,27 @@
+# Default parameters for `mapir_camera_ros2` camera_node.
+#
+# ROS 2 YAML parameter files are matched by node name. Using `/**` makes this
+# file apply regardless of whether you run the node as `mapir_camera` (default)
+# or rename it (e.g., launch files often set name:=camera).
+
+/**:
+  ros__parameters:
+    # Debug
+    debug: false
+    debug_period_s: 1.0
+
+    # V4L2
+    video_device: /dev/video0
+    pixel_format: MJPG  # MJPG or H264 (device-dependent)
+    image_width: 1920
+    image_height: 1440
+    framerate: 30.0
+
+    # Frames / calibration
+    frame_id: mapir3_optical_frame
+    camera_name: mapir3_ocn
+    camera_info_url: ''  # file:///abs/path/to/calibration.yaml
+
+    # QoS
+    qos_best_effort: true
+    qos_depth: 5

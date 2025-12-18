@@ -1,0 +1,32 @@
+# Template calibration for MAPIR Survey3 OCN.
+#
+# This is NOT a real calibration.
+# Copy it to `~/.ros/camera_info/mapir3_ocn.yaml` and replace values with your
+# actual calibration (e.g., from `camera_calibration`).
+
+image_width: 1920
+image_height: 1440
+camera_name: mapir3_ocn
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0,
+         0.0, 1.0, 0.0,
+         0.0, 0.0, 1.0]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [0.0, 0.0, 0.0, 0.0, 0.0]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0,
+         0.0, 1.0, 0.0,
+         0.0, 0.0, 1.0]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [1.0, 0.0, 0.0, 0.0,
+         0.0, 1.0, 0.0, 0.0,
+         0.0, 0.0, 1.0, 0.0]

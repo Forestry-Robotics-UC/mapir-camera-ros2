@@ -3,7 +3,7 @@
 #
 # Author: Duda Andrada
 # Maintainer: Duda Andrada <duda.andrada@isr.uc.pt>
-# License: MIT License (open source, free to modify and redistribute)
+# License: GNU General Public License v3.0 (GPL-3.0)
 # Repository: mapir_survey3
 #
 # Description:
@@ -21,27 +21,18 @@
 from __future__ import annotations
 
 import os
-import re
 import time
 from typing import Optional
 
-import cv2
-import rclpy
-from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
-from sensor_msgs.msg import Image, CameraInfo
-from cv_bridge import CvBridge
-
 from camera_info_manager import CameraInfoManager
 from camera_info_manager.camera_info_manager import CameraInfoMissingError
-
-
-def _fourcc_to_str(fourcc_int: int) -> str:
-    """Convert OpenCV FOURCC int to a readable 4-character code."""
-    try:
-        return "".join([chr((fourcc_int >> 8 * i) & 0xFF) for i in range(4)])
-    except Exception:
-        return "????"
+import cv2
+from cv_bridge import CvBridge
+from mapir_camera_core import configure_v4l2_capture, open_v4l2_capture
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
+from sensor_msgs.msg import CameraInfo, Image
 
 
 class MapirSurvey3CameraNode(Node):
@@ -64,17 +55,17 @@ class MapirSurvey3CameraNode(Node):
         # Parameters
         # -----------------------
         self.declare_parameter('debug', False)
-        self.declare_parameter('debug_period_s', 1.0)          # log periodic stats at this interval
+        self.declare_parameter('debug_period_s', 1.0)  # log periodic stats at this interval
         self.declare_parameter('video_device', '/dev/video0')  # '/dev/video0' or '0'
         self.declare_parameter('image_width', 1920)
         self.declare_parameter('image_height', 1440)
         self.declare_parameter('framerate', 30.0)
         self.declare_parameter('frame_id', 'mapir3_optical_frame')
         self.declare_parameter('camera_name', 'mapir3')
-        self.declare_parameter('camera_info_url', '')          # file:///...
-        self.declare_parameter('pixel_format', 'MJPG')         # MJPG or H264
-        self.declare_parameter('qos_depth', 5)                 # queue depth for pub/sub
-        self.declare_parameter('qos_best_effort', True)        # BEST_EFFORT (recommended for images)
+        self.declare_parameter('camera_info_url', '')  # file:///...
+        self.declare_parameter('pixel_format', 'MJPG')  # MJPG or H264
+        self.declare_parameter('qos_depth', 5)  # queue depth for pub/sub
+        self.declare_parameter('qos_best_effort', True)  # BEST_EFFORT recommended for images
 
         # Read parameters
         self.debug = bool(self.get_parameter('debug').value)
@@ -100,20 +91,24 @@ class MapirSurvey3CameraNode(Node):
         # Debug banner
         # -----------------------
         if self.debug:
-            self.get_logger().info(f"RUNNING FILE: {os.path.abspath(__file__)}")
+            self.get_logger().info(f'RUNNING FILE: {os.path.abspath(__file__)}')
             self.get_logger().info(
-                "Params: "
-                f"video_device={self.video_device}, size={self.req_width}x{self.req_height}, "
-                f"fps={self.req_fps}, fmt={self.pixel_format}, frame_id={self.frame_id}, "
-                f"camera_name={self.camera_name}, camera_info_url={self.camera_info_url!r}, "
-                f"qos_best_effort={self.qos_best_effort}, qos_depth={self.qos_depth}, "
-                f"debug_period_s={self.debug_period_s}"
+                'Params: '
+                f'video_device={self.video_device}, size={self.req_width}x{self.req_height}, '
+                f'fps={self.req_fps}, fmt={self.pixel_format}, frame_id={self.frame_id}, '
+                f'camera_name={self.camera_name}, camera_info_url={self.camera_info_url!r}, '
+                f'qos_best_effort={self.qos_best_effort}, qos_depth={self.qos_depth}, '
+                f'debug_period_s={self.debug_period_s}'
             )
 
         # -----------------------
         # QoS (best practice for camera images is BEST_EFFORT)
         # -----------------------
-        reliability = ReliabilityPolicy.BEST_EFFORT if self.qos_best_effort else ReliabilityPolicy.RELIABLE
+        reliability = (
+            ReliabilityPolicy.BEST_EFFORT
+            if self.qos_best_effort
+            else ReliabilityPolicy.RELIABLE
+        )
         self.pub_qos = QoSProfile(
             reliability=reliability,
             durability=DurabilityPolicy.VOLATILE,
@@ -123,7 +118,8 @@ class MapirSurvey3CameraNode(Node):
 
         if self.debug:
             self.get_logger().info(
-                f"Publisher QoS: reliability={self.pub_qos.reliability.name}, depth={self.pub_qos.depth}"
+                f'Publisher QoS: reliability={self.pub_qos.reliability.name}, '
+                f'depth={self.pub_qos.depth}'
             )
 
         # -----------------------
@@ -131,8 +127,8 @@ class MapirSurvey3CameraNode(Node):
         # -----------------------
         self.cap = self._open_camera(self.video_device)
         if not self.cap.isOpened():
-            self.get_logger().error(f"Failed to open video device: {self.video_device}")
-            raise RuntimeError("Camera open failed")
+            self.get_logger().error(f'Failed to open video device: {self.video_device}')
+            raise RuntimeError('Camera open failed')
 
         self._configure_camera()
 
@@ -140,11 +136,13 @@ class MapirSurvey3CameraNode(Node):
         ok, test_frame = self.cap.read()
         if not ok or test_frame is None:
             self.get_logger().error(
-                "Camera opened but no frames could be read. "
-                "Check /dev/video permissions, device busy, or negotiated pixel format."
+                'Camera opened but no frames could be read. '
+                'Check /dev/video permissions, device busy, or negotiated pixel format.'
             )
         else:
-            self.get_logger().info(f"First frame OK: shape={test_frame.shape}, dtype={test_frame.dtype}")
+            self.get_logger().info(
+                f'First frame OK: shape={test_frame.shape}, dtype={test_frame.dtype}'
+            )
 
         self.bridge = CvBridge()
 
@@ -157,23 +155,27 @@ class MapirSurvey3CameraNode(Node):
         # -----------------------
         # CameraInfoManager
         # -----------------------
-        self.cinfo_manager = CameraInfoManager(node=self, cname=self.camera_name, url=self.camera_info_url)
+        self.cinfo_manager = CameraInfoManager(
+            node=self,
+            cname=self.camera_name,
+            url=self.camera_info_url,
+        )
 
         loaded = False
         if self.camera_info_url:
-            self.get_logger().info(f"camera calibration URL: {self.camera_info_url}")
+            self.get_logger().info(f'camera calibration URL: {self.camera_info_url}')
 
         try:
             loaded = self.cinfo_manager.loadCameraInfo()
         except Exception as ex:
-            self.get_logger().warn(f"CameraInfo loadCameraInfo() raised: {ex}")
+            self.get_logger().warn(f'CameraInfo loadCameraInfo() raised: {ex}')
 
         if self.camera_info_url and loaded:
-            self.get_logger().info(f"Loaded camera calibration: {self.camera_info_url}")
+            self.get_logger().info(f'Loaded camera calibration: {self.camera_info_url}')
         else:
             self.get_logger().warn(
-                "No valid calibration loaded; publishing default (uncalibrated) CameraInfo. "
-                "Set 'camera_info_url' to a file:// YAML to enable calibration."
+                'No valid calibration loaded; publishing default (uncalibrated) CameraInfo. '
+                'Set "camera_info_url" to a file:// YAML to enable calibration.'
             )
 
         # -----------------------
@@ -195,49 +197,42 @@ class MapirSurvey3CameraNode(Node):
         self.timer = self.create_timer(self.timer_period, self.capture_and_publish)
 
         self.get_logger().info(
-            f"MAPIR Survey3 Camera started: {self.req_width}x{self.req_height} @ {self.req_fps:.1f} Hz "
-            f"({self.video_device}), fmt={self.pixel_format}, qos={self.pub_qos.reliability.name}"
+            f'MAPIR Survey3 Camera started: {self.req_width}x{self.req_height} '
+            f'@ {self.req_fps:.1f} Hz ({self.video_device}), '
+            f'fmt={self.pixel_format}, qos={self.pub_qos.reliability.name}'
         )
 
     def _open_camera(self, video_device: str) -> cv2.VideoCapture:
         """Open camera using V4L2 backend. Accepts '/dev/videoX' or numeric index."""
-        if video_device.isdigit():
-            return cv2.VideoCapture(int(video_device), cv2.CAP_V4L2)
-
-        m = re.match(r"^/dev/video(\d+)$", video_device)
-        if m:
-            return cv2.VideoCapture(int(m.group(1)), cv2.CAP_V4L2)
-
-        return cv2.VideoCapture(video_device, cv2.CAP_V4L2)
+        return open_v4l2_capture(video_device)
 
     def _configure_camera(self) -> None:
         """Configure pixel format, resolution, and fps; log negotiated values."""
         if self.pixel_format not in ('MJPG', 'H264'):
-            self.get_logger().warn(f"Unsupported pixel_format='{self.pixel_format}', forcing MJPG")
+            self.get_logger().warn(
+                f'Unsupported pixel_format={self.pixel_format!r}, forcing MJPG'
+            )
             self.pixel_format = 'MJPG'
 
-        fourcc = cv2.VideoWriter_fourcc(*self.pixel_format)
-        self.cap.set(cv2.CAP_PROP_FOURCC, fourcc)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(self.req_width))
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(self.req_height))
-        self.cap.set(cv2.CAP_PROP_FPS, float(self.req_fps))
-
-        got_w = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        got_h = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        got_fps = float(self.cap.get(cv2.CAP_PROP_FPS))
-        got_fourcc = int(self.cap.get(cv2.CAP_PROP_FOURCC))
-        got_fourcc_str = _fourcc_to_str(got_fourcc)
-
-        self.width = got_w if got_w > 0 else self.req_width
-        self.height = got_h if got_h > 0 else self.req_height
-
-        self.get_logger().info(
-            f"Negotiated capture: {got_w}x{got_h} @ {got_fps:.2f} Hz, FOURCC='{got_fourcc_str}'"
+        negotiation = configure_v4l2_capture(
+            self.cap,
+            req_width=self.req_width,
+            req_height=self.req_height,
+            req_fps=self.req_fps,
+            pixel_format=self.pixel_format,
         )
 
-        if self.debug:
-            backend = int(self.cap.get(cv2.CAP_PROP_BACKEND))
-            self.get_logger().debug(f"OpenCV backend id: {backend}")
+        self.width = negotiation.width if negotiation.width > 0 else self.req_width
+        self.height = negotiation.height if negotiation.height > 0 else self.req_height
+
+        self.get_logger().info(
+            f'Negotiated capture: {negotiation.width}x{negotiation.height} '
+            f'@ {negotiation.fps:.2f} Hz, '
+            f'FOURCC={negotiation.fourcc_str!r}'
+        )
+
+        if self.debug and negotiation.backend_id is not None:
+            self.get_logger().debug(f'OpenCV backend id: {negotiation.backend_id}')
 
     def _default_camerainfo(self) -> CameraInfo:
         """Fallback CameraInfo when no calibration is available."""
@@ -252,10 +247,12 @@ class MapirSurvey3CameraNode(Node):
             return self.cinfo_manager.getCameraInfo()
         except CameraInfoMissingError:
             if self.debug:
-                self.get_logger().debug("CameraInfo missing; using default CameraInfo()")
+                self.get_logger().debug('CameraInfo missing; using default CameraInfo()')
             return self._default_camerainfo()
         except Exception as ex:
-            self.get_logger().warn(f"getCameraInfo() failed; using default CameraInfo. Reason: {ex}")
+            self.get_logger().warn(
+                f'getCameraInfo() failed; using default CameraInfo. Reason: {ex}'
+            )
             return self._default_camerainfo()
 
     def capture_and_publish(self) -> None:
@@ -269,8 +266,8 @@ class MapirSurvey3CameraNode(Node):
                 now = time.time()
                 if (now - self._last_fail_log_t) >= self.debug_period_s:
                     self.get_logger().warn(
-                        f"Camera read failed (fail_reads={self._fail_reads}) "
-                        f"(device={self.video_device}, fmt={self.pixel_format})"
+                        f'Camera read failed (fail_reads={self._fail_reads}) '
+                        f'(device={self.video_device}, fmt={self.pixel_format})'
                     )
                     self._last_fail_log_t = now
             return
@@ -306,12 +303,12 @@ class MapirSurvey3CameraNode(Node):
                 est_hz = frames_since / dt
 
                 self.get_logger().debug(
-                    "Stats: "
-                    f"published_frames={self._pub_frames}, "
-                    f"fail_reads={self._fail_reads}, "
-                    f"est_pub_hz={est_hz:.2f}, "
-                    f"timer_period={self.timer_period:.4f}s, "
-                    f"max_inter_frame_dt={self._max_dt:.4f}s"
+                    'Stats: '
+                    f'published_frames={self._pub_frames}, '
+                    f'fail_reads={self._fail_reads}, '
+                    f'est_pub_hz={est_hz:.2f}, '
+                    f'timer_period={self.timer_period:.4f}s, '
+                    f'max_inter_frame_dt={self._max_dt:.4f}s'
                 )
 
                 self._last_stats_pub_frames = self._pub_frames

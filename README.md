@@ -8,6 +8,19 @@ pipelines and vegetation analysis workflows.
 
 ---
 
+## Documentation
+
+- Manual (Sphinx/MyST): `docs/index.md`
+- Parameters reference: `docs/manual/parameters.md`
+
+Build docs (optional):
+```
+pip install -r docs/requirements.txt
+sphinx-build -b html docs docs/_build/html
+```
+
+---
+
 ## Features
 
 - ROS 2 Jazzy compatible
@@ -36,41 +49,35 @@ All topics are published relative to the node namespace (recommended: /mapir).
 
 ## Parameters
 
-debug (bool, default false)  
-Enable verbose debug logging.
+- Full parameter reference: `docs/manual/parameters.md`
+- Preset YAML files (recommended):
+  - `config/mapir_camera_params.yaml`
+  - `config/mapir_indices_params.yaml`
+  - `config/mapir_indices_ocn_params.yaml`
 
-debug_period_s (double, default 1.0)  
-Throttle period for debug logs.
+---
 
-video_device (string, default /dev/video0)  
-Camera device path or index.
+## Multispectral Indices
 
-image_width (int, default 1920)  
-Requested image width.
+This package includes an optional processing node, `indices_node`, that computes common
+vegetation / spectral indices (e.g., NDVI, GNDVI) from the incoming 3-channel image.
 
-image_height (int, default 1440)  
-Requested image height.
+Published topics (relative to the namespace):
 
-framerate (double, default 30.0)  
-Target frame rate.
+- /<ns>/indices/<index_name> (sensor_msgs/Image, encoding 32FC1)
 
-pixel_format (string, default MJPG)  
-MJPG or H264.
+Enable via launch (uses the package default params file unless overridden):
+```
+ros2 launch mapir_camera_ros2 mapir_camera.launch.py namespace:=mapir enable_indices:=true
+```
 
-frame_id (string, default mapir3_optical_frame)  
-Optical frame ID.
+Adjust indices + band mapping via `config/mapir_indices_params.yaml` (installed with the package).
+The `filter_set` preset is best-effort and can be overridden with explicit `*_channel` parameters.
 
-camera_name (string, default mapir3)  
-Camera name for calibration.
+Core computations live in `mapir_camera_core`.
 
-camera_info_url (string, default empty)  
-file:///.../calibration.yaml
-
-qos_best_effort (bool, default true)  
-BEST_EFFORT vs RELIABLE QoS.
-
-qos_depth (int, default 5)  
-Publisher queue depth.
+For Survey3W OCN streams, set `filter_set: OCN` (or use `config/mapir_indices_ocn_params.yaml`).
+The preset aliases `cyan→blue` and `orange→red` for index computation (no green/rededge band).
 
 ---
 
@@ -95,13 +102,23 @@ Direct execution:
 ```
 ros2 run mapir_camera_ros2 camera_node 
 ```
+Direct execution using the installed preset params file:
+```
+ros2 run mapir_camera_ros2 camera_node --ros-args --params-file \
+  $(ros2 pkg prefix mapir_camera_ros2)/share/mapir_camera_ros2/config/mapir_camera_params.yaml
+```
 Debug with explicit log level:
 ```
 ros2 run mapir_camera_ros2 camera_node --ros-args --log-level mapir_camera:=debug -r __ns:=/mapir -p debug:=true
 ```
 ## Launch File
 ```
-ros2 launch mapir_camera_ros2 mapir_camera.launch.py namespace:=mapir debug:=true qos_best_effort:=true camera_info_url:=file:///root/.ros/camera_info/mapir3.yaml
+ros2 launch mapir_camera_ros2 mapir_camera.launch.py \
+  namespace:=mapir \
+  camera_params_file:=$(ros2 pkg prefix mapir_camera_ros2)/share/mapir_camera_ros2/config/mapir_camera_params.yaml \
+  indices_params_file:=$(ros2 pkg prefix mapir_camera_ros2)/share/mapir_camera_ros2/config/mapir_indices_params.yaml \
+  debug:=true qos_best_effort:=true \
+  camera_info_url:=file:///root/.ros/camera_info/mapir3.yaml
 ```
 
 ## Debugging Tips
@@ -121,9 +138,28 @@ Run without rebuild (fast iteration):
 python3 -m mapir_camera_ros2.camera_node --ros-args -r __ns:=/mapir -p debug:=true
 ```
 
+## Docker
+
+Build:
+```
+docker build -t mapir_camera_ros2:jazzy .
+```
+
+Run (example with V4L2 camera at `/dev/video0`):
+```
+docker run --rm -it --net=host --device=/dev/video0 mapir_camera_ros2:jazzy
+```
+
+Inside the container:
+```
+ros2 launch mapir_camera_ros2 mapir_camera.launch.py namespace:=mapir video_device:=/dev/video0
+```
+
+Note: you may need extra device permissions depending on your host setup (e.g., `--privileged`).
+
 ## License
 
-MIT License
+GNU General Public License v3.0 (GPL-3.0)
 
 © Duda Andrada
 

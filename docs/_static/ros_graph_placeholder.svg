@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+  <rect width="960" height="540" fill="#f6f8fa"/>
+  <rect x="60" y="60" width="840" height="420" rx="12" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="480" y="150" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#24292f">
+    ROS Graph Screenshot (Placeholder)
+  </text>
+  <text x="480" y="210" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#57606a">
+    Replace with an rqt_graph screenshot (or equivalent).
+  </text>
+  <text x="480" y="280" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#57606a">
+    Suggested: /mapir/image_raw → /mapir/indices/ndvi, etc.
+  </text>
+</svg>
+
