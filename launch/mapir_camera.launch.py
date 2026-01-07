@@ -3,7 +3,7 @@
 #
 # Author: Duda Andrada
 # Maintainer: Duda Andrada <duda.andrada@isr.uc.pt>
-# License: GNU General Public License v3.0 (GPL-3.0)
+# License: GNU General Public License v3.0 (GPL-3.0-only)
 # Repository: mapir_survey3
 #
 # Description:
@@ -34,7 +34,7 @@ def generate_launch_description() -> LaunchDescription:
 
     default_camera_params_file = os.path.join(pkg_share, 'config', 'mapir_camera_params.yaml')
 
-    default_calib_file = os.path.join(pkg_share, 'config', 'mapir3_ocn.yaml')
+    default_calib_file = os.path.expanduser('~/.ros/camera_info/mapir3_ocn.yaml')
     default_calib_url = (
         f'file://{default_calib_file}' if os.path.exists(default_calib_file) else ''
     )

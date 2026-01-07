@@ -17,7 +17,7 @@ Parameter defaults come from:
 | `framerate` | `float` | `30.0` | Requested FPS. |
 | `pixel_format` | `str` | `'MJPG'` | `'MJPG'` or `'H264'` (device-dependent). |
 | `frame_id` | `str` | `'mapir3_optical_frame'` | Output frame_id for Image/CameraInfo. |
-| `camera_name` | `str` | `'mapir3'` | Camera name for calibration lookup. |
+| `camera_name` | `str` | `'mapir3_ocn'` | Camera name for calibration lookup. |
 | `camera_info_url` | `str` | `''` | Calibration URL (`file:///.../calib.yaml`). |
 | `qos_best_effort` | `bool` | `true` | BEST_EFFORT vs RELIABLE. |
 | `qos_depth` | `int` | `5` | Publisher queue depth. |

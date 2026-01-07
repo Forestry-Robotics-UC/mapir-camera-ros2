@@ -49,8 +49,15 @@ myst_enable_extensions = [
     'deflist',
 ]
 
-html_theme = 'alabaster'
 html_static_path = ['_static']
+
+html_theme = 'furo'
+html_logo = '_static/fruc_logo.png'
+html_theme_options = {
+    'sidebar_hide_name': True,
+    'light_logo': 'fruc_logo.png',
+    'dark_logo': 'fruc_logo.png',
+}
 
 master_doc = 'index'
 root_doc = 'index'

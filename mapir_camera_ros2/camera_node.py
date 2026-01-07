@@ -3,7 +3,7 @@
 #
 # Author: Duda Andrada
 # Maintainer: Duda Andrada <duda.andrada@isr.uc.pt>
-# License: GNU General Public License v3.0 (GPL-3.0)
+# License: GNU General Public License v3.0 (GPL-3.0-only)
 # Repository: mapir_survey3
 #
 # Description:
@@ -61,7 +61,7 @@ class MapirSurvey3CameraNode(Node):
         self.declare_parameter('image_height', 1440)
         self.declare_parameter('framerate', 30.0)
         self.declare_parameter('frame_id', 'mapir3_optical_frame')
-        self.declare_parameter('camera_name', 'mapir3')
+        self.declare_parameter('camera_name', 'mapir3_ocn')
         self.declare_parameter('camera_info_url', '')  # file:///...
         self.declare_parameter('pixel_format', 'MJPG')  # MJPG or H264
         self.declare_parameter('qos_depth', 5)  # queue depth for pub/sub

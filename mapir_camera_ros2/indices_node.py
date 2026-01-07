@@ -3,7 +3,7 @@
 #
 # Author: Duda Andrada
 # Maintainer: Duda Andrada <duda.andrada@isr.uc.pt>
-# License: GNU General Public License v3.0 (GPL-3.0)
+# License: GNU General Public License v3.0 (GPL-3.0-only)
 #
 # Description:
 #   ROS 2 node that computes vegetation / spectral indices from a 3-channel

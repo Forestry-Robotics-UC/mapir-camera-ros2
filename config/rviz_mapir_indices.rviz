@@ -1,0 +1,646 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Selection
+    Name: Selection
+  - Class: rviz_common/Tool Properties
+    Name: Tool Properties
+  - Class: rviz_common/Views
+    Name: Views
+  - Class: rviz_common/Time
+    Name: Time
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_common/DisplayGroup
+      Name: Camera
+      Enabled: true
+      Displays:
+        - Class: rviz_default_plugins/Image
+          Name: image_raw
+          Enabled: true
+          Image Topic: /mapir/image_raw
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+    - Class: rviz_common/DisplayGroup
+      Name: Indices
+      Enabled: true
+      Displays:
+        - Class: rviz_default_plugins/Image
+          Name: ndvi
+          Enabled: false
+          Image Topic: /mapir/indices/ndvi
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: ndre
+          Enabled: false
+          Image Topic: /mapir/indices/ndre
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: evi
+          Enabled: false
+          Image Topic: /mapir/indices/evi
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: lai
+          Enabled: false
+          Image Topic: /mapir/indices/lai
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: savi
+          Enabled: false
+          Image Topic: /mapir/indices/savi
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: osavi
+          Enabled: false
+          Image Topic: /mapir/indices/osavi
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: msavi2
+          Enabled: false
+          Image Topic: /mapir/indices/msavi2
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: rdvi
+          Enabled: false
+          Image Topic: /mapir/indices/rdvi
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: tdvi
+          Enabled: false
+          Image Topic: /mapir/indices/tdvi
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: wdrvi
+          Enabled: false
+          Image Topic: /mapir/indices/wdrvi
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: nli
+          Enabled: false
+          Image Topic: /mapir/indices/nli
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: mnli
+          Enabled: false
+          Image Topic: /mapir/indices/mnli
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: gemi
+          Enabled: false
+          Image Topic: /mapir/indices/gemi
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: fci1
+          Enabled: false
+          Image Topic: /mapir/indices/fci1
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: fci2
+          Enabled: false
+          Image Topic: /mapir/indices/fci2
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: lci
+          Enabled: false
+          Image Topic: /mapir/indices/lci
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: gndvi
+          Enabled: false
+          Image Topic: /mapir/indices/gndvi
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: gci
+          Enabled: false
+          Image Topic: /mapir/indices/gci
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: grvi
+          Enabled: false
+          Image Topic: /mapir/indices/grvi
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: gosavi
+          Enabled: false
+          Image Topic: /mapir/indices/gosavi
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: gsavi
+          Enabled: false
+          Image Topic: /mapir/indices/gsavi
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: gari
+          Enabled: false
+          Image Topic: /mapir/indices/gari
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: gli
+          Enabled: false
+          Image Topic: /mapir/indices/gli
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: vari
+          Enabled: false
+          Image Topic: /mapir/indices/vari
+          Normalize Range: true
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+    - Class: rviz_common/DisplayGroup
+      Name: Indices Color
+      Enabled: true
+      Displays:
+        - Class: rviz_default_plugins/Image
+          Name: color_ndvi
+          Enabled: false
+          Image Topic: /mapir/indices_color/ndvi
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_ndre
+          Enabled: false
+          Image Topic: /mapir/indices_color/ndre
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_evi
+          Enabled: false
+          Image Topic: /mapir/indices_color/evi
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_lai
+          Enabled: false
+          Image Topic: /mapir/indices_color/lai
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_savi
+          Enabled: false
+          Image Topic: /mapir/indices_color/savi
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_osavi
+          Enabled: false
+          Image Topic: /mapir/indices_color/osavi
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_msavi2
+          Enabled: false
+          Image Topic: /mapir/indices_color/msavi2
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_rdvi
+          Enabled: false
+          Image Topic: /mapir/indices_color/rdvi
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_tdvi
+          Enabled: false
+          Image Topic: /mapir/indices_color/tdvi
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_wdrvi
+          Enabled: false
+          Image Topic: /mapir/indices_color/wdrvi
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_nli
+          Enabled: false
+          Image Topic: /mapir/indices_color/nli
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_mnli
+          Enabled: false
+          Image Topic: /mapir/indices_color/mnli
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_gemi
+          Enabled: false
+          Image Topic: /mapir/indices_color/gemi
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_fci1
+          Enabled: false
+          Image Topic: /mapir/indices_color/fci1
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_fci2
+          Enabled: false
+          Image Topic: /mapir/indices_color/fci2
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_lci
+          Enabled: false
+          Image Topic: /mapir/indices_color/lci
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_gndvi
+          Enabled: false
+          Image Topic: /mapir/indices_color/gndvi
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_gci
+          Enabled: false
+          Image Topic: /mapir/indices_color/gci
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_grvi
+          Enabled: false
+          Image Topic: /mapir/indices_color/grvi
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_gosavi
+          Enabled: false
+          Image Topic: /mapir/indices_color/gosavi
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_gsavi
+          Enabled: false
+          Image Topic: /mapir/indices_color/gsavi
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_gari
+          Enabled: false
+          Image Topic: /mapir/indices_color/gari
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_gli
+          Enabled: false
+          Image Topic: /mapir/indices_color/gli
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+        - Class: rviz_default_plugins/Image
+          Name: color_vari
+          Enabled: false
+          Image Topic: /mapir/indices_color/vari
+          Normalize Range: false
+          Queue Size: 2
+          Transport Hint: raw
+          QoS Profile:
+            History Policy: Keep Last
+            Depth: 5
+            Reliability Policy: Best Effort
+            Durability Policy: Volatile
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: mapir3_optical_frame
+    Frame Rate: 30
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+    - Class: rviz_default_plugins/SetInitialPose
+      Topic: /initialpose
+    - Class: rviz_default_plugins/SetGoal
+      Topic: /goal_pose
+    - Class: rviz_default_plugins/PublishPoint
+      Topic: /clicked_point
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 5
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Pitch: 0.785
+      Yaw: 0.785
+      Target Frame: mapir3_optical_frame
+Window Geometry:
+  Height: 900
+  Width: 1400
+  X: 50
+  Y: 50

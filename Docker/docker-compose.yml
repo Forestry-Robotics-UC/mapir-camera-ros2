@@ -1,0 +1,39 @@
+services:
+  mapir_camera:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mapir_camera_ros2:jazzy
+    network_mode: host
+    environment:
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+    volumes:
+      - /mnt/bumble/work_utils/mapir_camera:/workspaces/ros2_ws/src/mapir_camera:ro
+    devices:
+      - /dev/video0:/dev/video0
+    stdin_open: true
+    tty: true
+    command: >-
+      bash -lc "source /opt/ros/jazzy/setup.bash
+      && cd /workspaces/ros2_ws
+      && colcon build --symlink-install
+      && source install/setup.bash
+      && exec bash"
+  rviz:
+    image: mapir_camera_ros2:jazzy
+    network_mode: host
+    environment:
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+    volumes:
+      - /mnt/bumble/work_utils/mapir_camera:/workspaces/ros2_ws/src/mapir_camera:ro
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    depends_on:
+      - mapir_camera
+    stdin_open: true
+    tty: true
+    command: >-
+      bash -lc "source /opt/ros/jazzy/setup.bash
+      && source /workspaces/ros2_ws/install/setup.bash
+      && rviz2 -d /workspaces/ros2_ws/src/mapir_camera/config/rviz_mapir_indices.rviz"

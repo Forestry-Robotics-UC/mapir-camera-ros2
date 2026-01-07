@@ -4,7 +4,7 @@
   <name>mapir_camera_ros2</name>
   <version>0.0.1</version>
   <description>
-  ROS 2 Jazzy driver and processing tools for the MAPIR Survey3 multispectral camera, supporting USB acquisition, PWD-triggered capture, and publication of O/C/N or N/G/R spectral bands. Provides optional real-time vegetation index computation (e.g., NDVI, GNDVI) for UAV and ground-robot mapping workflows.
+  ROS 2 Jazzy driver and processing tools for the MAPIR Survey3 multispectral camera, supporting USB acquisition, PWM-triggered capture, and publication of OCN or RGN/NGB spectral bands. Provides optional real-time vegetation index computation (e.g., NDVI, GNDVI) for UAV and ground-robot mapping workflows.
   </description>
   <maintainer email="duda.andrada@isr.uc.pt">Duda Andrada</maintainer>
   <license>GPL-3.0-only</license>
@@ -20,6 +20,7 @@
   <exec_depend>python3-opencv</exec_depend>
   <exec_depend>image_transport</exec_depend>
   <exec_depend>camera_info_manager_py</exec_depend>
+  <exec_depend>rcl_interfaces</exec_depend>
   
   <export>
     <build_type>ament_python</build_type>

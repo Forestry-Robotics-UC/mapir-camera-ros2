@@ -23,8 +23,8 @@
     image_topic: image_raw
 
     # Recommended indices for OCN (Cyan/Orange/NIR1).
-    indices: [ndvi, evi, osavi, savi, wdrvi, msavi2, gemi, rdvi, tdvi, nli, mnli]
-
+    #[ndvi, evi, osavi, savi, wdrvi, msavi2, gemi, rdvi, tdvi, nli, mnli]
+    indices: [ndvi, osavi]
     filter_set: OCN
 
     # Performance
@@ -33,7 +33,7 @@
     publish_every_n: 1
 
     # Optional colorized output (BGR8)
-    publish_color: false
+    publish_color: true
     colormap: viridis  # e.g., viridis, jet, gray, custom
     colorize_min: -1.0
     colorize_max: 1.0
