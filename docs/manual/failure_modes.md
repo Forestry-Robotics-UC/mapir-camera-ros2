@@ -57,3 +57,14 @@ Fix:
 
 - set `filter_set` correctly and/or set explicit `*_channel` overrides.
 
+## RViz image not updating (QoS mismatch)
+
+Symptoms:
+
+- RViz shows `/mapir/image_raw` but no frames update
+- camera node logs "incompatible QoS" warnings
+
+Fix:
+
+- In RViz, set the Image display QoS Reliability to `Best Effort`, or
+- launch the camera with `qos_best_effort:=false` to publish RELIABLE.

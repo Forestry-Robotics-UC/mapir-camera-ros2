@@ -209,6 +209,9 @@ Verify publishing:
 ros2 topic info /mapir/image_raw -v  
 ros2 topic hz /mapir/image_raw
 ```
+RViz QoS (image not updating):
+- Set Image display QoS Reliability to `Best Effort`, or
+- launch with `qos_best_effort:=false` to publish RELIABLE.
 Run without rebuild (fast iteration):
 
 ```

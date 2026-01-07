@@ -207,6 +207,10 @@ Indices missing:
 - Ensure `filter_set` matches the camera and bands
 - Set explicit `*_channel` overrides
 
+RViz image not updating:
+- Set Image display QoS Reliability to `Best Effort`, or
+- Launch with `qos_best_effort:=false` to publish RELIABLE
+
 ---
 
 ## Docker (Optional)

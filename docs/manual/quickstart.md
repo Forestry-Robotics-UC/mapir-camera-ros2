@@ -54,6 +54,8 @@ ros2 launch mapir_camera_ros2 mapir_camera.launch.py \
 ## 6) Visualize
 
 - RViz: add an Image display and select `/mapir/image_raw`.
+  - If the image does not show, set the Image display QoS Reliability to
+    `Best Effort` (matches the default publisher QoS).
+  - Alternatively launch with `qos_best_effort:=false` to publish RELIABLE.
 - Quick viewer:
   - `ros2 run image_tools showimage --ros-args -r image:=/mapir/image_raw`
-
