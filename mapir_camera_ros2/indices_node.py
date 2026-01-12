@@ -48,7 +48,7 @@ class MapirIndicesNode(Node):
         self.declare_parameter('enabled', True)
 
         self.declare_parameter('image_topic', 'image_raw')
-        self.declare_parameter('indices', ['ndvi'])
+        self.declare_parameter('indices', ['ndvi', 'osavi'])
         self.declare_parameter('filter_set', '')  # e.g., RGN, NGB, OCN, RGB
 
         self.declare_parameter('normalize_input', True)
@@ -143,6 +143,11 @@ class MapirIndicesNode(Node):
         if unknown:
             self.get_logger().warn(
                 f'Unknown indices ignored: {unknown}. Supported: {sorted(supported)}'
+            )
+        if len(self.indices) > 2:
+            self.get_logger().warn(
+                'More than two indices configured; expect low FPS. '
+                'Recommended: 1–2 indices at a time.'
             )
 
         # Publishers per-index.

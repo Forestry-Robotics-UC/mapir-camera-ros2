@@ -12,10 +12,12 @@ Parameter defaults come from:
 | `debug` | `bool` | `false` | Enable extra logs. |
 | `debug_period_s` | `float` | `1.0` | Throttle for periodic debug logs. |
 | `video_device` | `str` | `'/dev/video0'` | V4L2 device path or numeric index. |
-| `image_width` | `int` | `1920` | Requested width. |
-| `image_height` | `int` | `1440` | Requested height. |
+| `image_width` | `int` | `1280` | Requested width. |
+| `image_height` | `int` | `720` | Requested height. |
 | `framerate` | `float` | `30.0` | Requested FPS. |
 | `pixel_format` | `str` | `'MJPG'` | `'MJPG'` or `'H264'` (device-dependent). |
+| `use_gstreamer` | `bool` | `false` | Use a GStreamer pipeline for capture. |
+| `gstreamer_pipeline` | `str` | `''` | Custom GStreamer pipeline string. |
 | `frame_id` | `str` | `'mapir3_optical_frame'` | Output frame_id for Image/CameraInfo. |
 | `camera_name` | `str` | `'mapir3_ocn'` | Camera name for calibration lookup. |
 | `camera_info_url` | `str` | `''` | Calibration URL (`file:///.../calib.yaml`). |
@@ -34,7 +36,7 @@ Preset file:
 | `debug_period_s` | `float` | `1.0` | Throttle for periodic debug logs. |
 | `enabled` | `bool` | `true` | Runtime toggle (skip compute/publish when false). |
 | `image_topic` | `str` | `'image_raw'` | Input image topic (relative to namespace). |
-| `indices` | `list[str]` | `['ndvi']` | Index names; add `_1`/`_2` to prefer NIR1/NIR2. |
+| `indices` | `list[str]` | `['ndvi', 'osavi']` | Index names; add `_1`/`_2` to prefer NIR1/NIR2. |
 | `filter_set` | `str` | `''` | Band preset: `RGN`, `NGB`, `OCN`, `RGB`. |
 | `normalize_input` | `bool` | `true` | Normalize integer images to `[0,1]`. |
 | `downsample_factor` | `int` | `1` | Stride downsample for CPU savings. |
@@ -51,6 +53,8 @@ Preset file:
 | `*_channel` | `int` | `-1` | Override mapping (0=B,1=G,2=R); `-1` leaves unset. |
 | `qos_best_effort` | `bool` | `true` | Match camera stream QoS. |
 | `qos_depth` | `int` | `5` | Subscription/publisher depth. |
+
+Performance note: for real-time use, keep the indices list to 1-2 entries.
 
 Preset files:
 

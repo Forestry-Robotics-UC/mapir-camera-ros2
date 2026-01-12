@@ -201,6 +201,13 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Local system integration (not committed)
+curtmini/
+
+# Tool artifacts
+tools/doc_images/
+tools/indices.zip
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

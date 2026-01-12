@@ -57,13 +57,15 @@ class MapirSurvey3CameraNode(Node):
         self.declare_parameter('debug', False)
         self.declare_parameter('debug_period_s', 1.0)  # log periodic stats at this interval
         self.declare_parameter('video_device', '/dev/video0')  # '/dev/video0' or '0'
-        self.declare_parameter('image_width', 1920)
-        self.declare_parameter('image_height', 1440)
+        self.declare_parameter('image_width', 1280)
+        self.declare_parameter('image_height', 720)
         self.declare_parameter('framerate', 30.0)
         self.declare_parameter('frame_id', 'mapir3_optical_frame')
         self.declare_parameter('camera_name', 'mapir3_ocn')
         self.declare_parameter('camera_info_url', '')  # file:///...
         self.declare_parameter('pixel_format', 'MJPG')  # MJPG or H264
+        self.declare_parameter('use_gstreamer', False)  # use GStreamer pipeline
+        self.declare_parameter('gstreamer_pipeline', '')  # custom pipeline string
         self.declare_parameter('qos_depth', 5)  # queue depth for pub/sub
         self.declare_parameter('qos_best_effort', True)  # BEST_EFFORT recommended for images
 
@@ -79,6 +81,8 @@ class MapirSurvey3CameraNode(Node):
         self.camera_name = str(self.get_parameter('camera_name').value)
         self.camera_info_url = str(self.get_parameter('camera_info_url').value)
         self.pixel_format = str(self.get_parameter('pixel_format').value).upper()
+        self.use_gstreamer = bool(self.get_parameter('use_gstreamer').value)
+        self.gstreamer_pipeline = str(self.get_parameter('gstreamer_pipeline').value)
 
         self.qos_depth = max(1, int(self.get_parameter('qos_depth').value))
         self.qos_best_effort = bool(self.get_parameter('qos_best_effort').value)
@@ -97,6 +101,7 @@ class MapirSurvey3CameraNode(Node):
                 f'video_device={self.video_device}, size={self.req_width}x{self.req_height}, '
                 f'fps={self.req_fps}, fmt={self.pixel_format}, frame_id={self.frame_id}, '
                 f'camera_name={self.camera_name}, camera_info_url={self.camera_info_url!r}, '
+                f'use_gstreamer={self.use_gstreamer}, '
                 f'qos_best_effort={self.qos_best_effort}, qos_depth={self.qos_depth}, '
                 f'debug_period_s={self.debug_period_s}'
             )
@@ -140,6 +145,7 @@ class MapirSurvey3CameraNode(Node):
                 'Check /dev/video permissions, device busy, or negotiated pixel format.'
             )
         else:
+            self._update_dimensions_from_frame(test_frame)
             self.get_logger().info(
                 f'First frame OK: shape={test_frame.shape}, dtype={test_frame.dtype}'
             )
@@ -204,10 +210,22 @@ class MapirSurvey3CameraNode(Node):
 
     def _open_camera(self, video_device: str) -> cv2.VideoCapture:
         """Open camera using V4L2 backend. Accepts '/dev/videoX' or numeric index."""
-        return open_v4l2_capture(video_device)
+        if not self.use_gstreamer:
+            return open_v4l2_capture(video_device)
+
+        pipeline = self._build_gstreamer_pipeline()
+        if self.debug:
+            self.get_logger().info(f'GStreamer pipeline: {pipeline}')
+        return cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
 
     def _configure_camera(self) -> None:
         """Configure pixel format, resolution, and fps; log negotiated values."""
+        if self.use_gstreamer:
+            self.width = self.req_width
+            self.height = self.req_height
+            self.get_logger().info('GStreamer capture enabled; skipping V4L2 negotiation')
+            return
+
         if self.pixel_format not in ('MJPG', 'H264'):
             self.get_logger().warn(
                 f'Unsupported pixel_format={self.pixel_format!r}, forcing MJPG'
@@ -233,6 +251,47 @@ class MapirSurvey3CameraNode(Node):
 
         if self.debug and negotiation.backend_id is not None:
             self.get_logger().debug(f'OpenCV backend id: {negotiation.backend_id}')
+
+    def _build_gstreamer_pipeline(self) -> str:
+        """Return a GStreamer pipeline string for USB camera capture."""
+        custom = self.gstreamer_pipeline.strip()
+        if custom:
+            return custom
+
+        device = self.video_device
+        width = self.req_width
+        height = self.req_height
+        fps = int(round(self.req_fps))
+
+        if self.pixel_format == 'H264':
+            return (
+                f'v4l2src device={device} ! '
+                f'video/x-h264,width={width},height={height},framerate={fps}/1 ! '
+                'h264parse ! '
+                'avdec_h264 ! '
+                'videoconvert ! '
+                'video/x-raw,format=BGR ! '
+                'appsink drop=true max-buffers=1 sync=false'
+            )
+
+        return (
+            f'v4l2src device={device} ! '
+            f'image/jpeg,width={width},height={height},framerate={fps}/1 ! '
+            'jpegdec ! '
+            'videoconvert ! '
+            'video/x-raw,format=BGR ! '
+            'appsink drop=true max-buffers=1 sync=false'
+        )
+
+    def _update_dimensions_from_frame(self, frame) -> None:
+        """Update width/height from the first frame if needed."""
+        try:
+            height, width = frame.shape[:2]
+        except Exception:
+            return
+        if width > 0 and height > 0:
+            self.width = int(width)
+            self.height = int(height)
 
     def _default_camerainfo(self) -> CameraInfo:
         """Fallback CameraInfo when no calibration is available."""

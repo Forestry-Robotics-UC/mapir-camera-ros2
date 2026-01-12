@@ -10,14 +10,14 @@ pipelines and vegetation analysis workflows.
 
 ## Documentation
 
-- Wiki (Markdown for GitHub): `docs/WIKI.md`
 - Manual (Sphinx/MyST): `docs/index.md`
 - Parameters reference: `docs/manual/parameters.md`
 
-Build docs (optional):
+Build docs (GitHub Pages):
 ```
 pip install -r docs/requirements.txt
 sphinx-build -b html docs docs/_build/html
+touch docs/_build/html/.nojekyll
 ```
 
 ---
@@ -62,10 +62,12 @@ Common camera_node parameters:
 | Param | Type | Default | Notes |
 |---|---|---|---|
 | `video_device` | `str` | `/dev/video0` | V4L2 device path or numeric index. |
-| `image_width` | `int` | `1920` | Requested width. |
-| `image_height` | `int` | `1440` | Requested height. |
+| `image_width` | `int` | `1280` | Requested width. |
+| `image_height` | `int` | `720` | Requested height. |
 | `framerate` | `float` | `30.0` | Requested FPS. |
 | `pixel_format` | `str` | `MJPG` | `MJPG` or `H264` (device-dependent). |
+| `use_gstreamer` | `bool` | `false` | Use GStreamer pipeline for capture. |
+| `gstreamer_pipeline` | `str` | `''` | Custom GStreamer pipeline string. |
 | `frame_id` | `str` | `mapir3_optical_frame` | REP-105 optical frame. |
 | `camera_info_url` | `str` | `''` | `file:///.../calib.yaml`. |
 | `qos_best_effort` | `bool` | `true` | BEST_EFFORT recommended. |
@@ -74,7 +76,7 @@ Common indices_node parameters:
 
 | Param | Type | Default | Notes |
 |---|---|---|---|
-| `indices` | `list[str]` | `['ndvi']` | Add `_1`/`_2` to prefer NIR1/NIR2. |
+| `indices` | `list[str]` | `['ndvi', 'osavi']` | Add `_1`/`_2` to prefer NIR1/NIR2. |
 | `filter_set` | `str` | `''` | `RGN`, `NGB`, `OCN`, `RGB`. |
 | `normalize_input` | `bool` | `true` | Normalize integer images to `[0,1]`. |
 | `downsample_factor` | `int` | `1` | Stride downsample for CPU savings. |
@@ -89,6 +91,7 @@ Common indices_node parameters:
 
 This package includes an optional processing node, `indices_node`, that computes common
 vegetation / spectral indices (e.g., NDVI, GNDVI) from the incoming 3-channel image.
+For real-time performance, keep the indices list to 1-2 entries at a time.
 
 Published topics (relative to the namespace):
 
@@ -170,6 +173,10 @@ Direct execution:
 ```
 ros2 run mapir_camera_ros2 camera_node 
 ```
+Direct execution (C++ node):
+```
+ros2 run mapir_camera_cpp camera_node_cpp
+```
 Direct execution using the installed preset params file:
 ```
 ros2 run mapir_camera_ros2 camera_node --ros-args --params-file \
@@ -178,6 +185,12 @@ ros2 run mapir_camera_ros2 camera_node --ros-args --params-file \
 Debug with explicit log level:
 ```
 ros2 run mapir_camera_ros2 camera_node --ros-args --log-level mapir_camera:=debug -r __ns:=/mapir -p debug:=true
+```
+GStreamer capture (optional, for Jetson hardware decode):
+```
+ros2 run mapir_camera_ros2 camera_node --ros-args -r __ns:=/mapir \
+  -p use_gstreamer:=true \
+  -p gstreamer_pipeline:="v4l2src device=/dev/video0 ! video/x-h264,width=1280,height=720,framerate=30/1 ! h264parse ! nvv4l2decoder ! videoconvert ! video/x-raw,format=BGR ! appsink drop=true max-buffers=1 sync=false"
 ```
 ## Launch File
 ```
@@ -235,7 +248,25 @@ Inside the container:
 ros2 launch mapir_camera_ros2 mapir_camera.launch.py namespace:=mapir video_device:=/dev/video0
 ```
 
+Per-index nodes (avoid multi-index bottleneck; keep 1-2 indices per node):
+```
+ros2 launch mapir_camera_ros2 mapir_camera.launch.py \
+  namespace:=mapir enable_indices:=true indices_per_node:=true
+```
+Use all supported indices:
+```
+ros2 launch mapir_camera_ros2 mapir_camera.launch.py \
+  namespace:=mapir enable_indices:=true indices_per_node:=true indices_all:=true
+```
+
 Note: you may need extra device permissions depending on your host setup (e.g., `--privileged`).
+
+Docker compose (runtime, in `Docker/`):
+```
+cd Docker
+docker compose build
+docker compose up mapir_camera
+```
 
 ## License
 

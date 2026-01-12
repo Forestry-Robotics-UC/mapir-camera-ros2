@@ -2,6 +2,7 @@
 
 The indices math lives in `mapir_camera_core/spectral_indices.py` and is
 published by the ROS node `mapir_camera_ros2/indices_node.py`.
+For real-time performance, keep the indices list to 1-2 entries.
 
 Outputs:
 

@@ -22,8 +22,7 @@
     # IO
     image_topic: image_raw
 
-    # Recommended indices for OCN (Cyan/Orange/NIR1).
-    #[ndvi, evi, osavi, savi, wdrvi, msavi2, gemi, rdvi, tdvi, nli, mnli]
+    # Recommended indices for OCN (Cyan/Orange/NIR1). Keep to 1-2 at a time for real-time.
     indices: [ndvi, osavi]
     filter_set: OCN
 

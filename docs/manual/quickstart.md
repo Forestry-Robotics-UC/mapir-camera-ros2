@@ -22,9 +22,17 @@ source install/setup.bash
 ros2 launch mapir_camera_ros2 mapir_camera.launch.py \
   namespace:=mapir \
   video_device:=/dev/video0 \
-  image_width:=1920 image_height:=1440 \
+  image_width:=1280 image_height:=720 \
   framerate:=30.0 \
   pixel_format:=MJPG
+```
+
+GStreamer capture (optional):
+```bash
+ros2 launch mapir_camera_ros2 mapir_camera.launch.py \
+  namespace:=mapir \
+  use_gstreamer:=true \
+  gstreamer_pipeline:="v4l2src device=/dev/video0 ! image/jpeg,width=1280,height=720,framerate=30/1 ! jpegdec ! videoconvert ! video/x-raw,format=BGR ! appsink drop=true max-buffers=1 sync=false"
 ```
 
 Validate:
@@ -41,6 +49,7 @@ ros2 launch mapir_camera_ros2 mapir_camera.launch.py \
   namespace:=mapir \
   enable_indices:=true
 ```
+For real-time performance, keep the indices list to 1-2 entries.
 
 ## 5) Enable indices (Survey3W OCN)
 

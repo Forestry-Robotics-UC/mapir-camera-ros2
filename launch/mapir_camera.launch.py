@@ -19,14 +19,16 @@
 #   to mapir3_optical_frame is a practical placeholder.
 
 import os
+import re
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, OpaqueFunction, LogInfo
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+from mapir_camera_core.spectral_indices import supported_spectral_indices
 
 
 def generate_launch_description() -> LaunchDescription:
@@ -64,13 +66,13 @@ def generate_launch_description() -> LaunchDescription:
 
     image_width_arg = DeclareLaunchArgument(
         'image_width',
-        default_value='1920',
+        default_value='1280',
         description='Requested image width (pixels).',
     )
 
     image_height_arg = DeclareLaunchArgument(
         'image_height',
-        default_value='1440',
+        default_value='720',
         description='Requested image height (pixels).',
     )
 
@@ -84,6 +86,16 @@ def generate_launch_description() -> LaunchDescription:
         'pixel_format',
         default_value='MJPG',
         description='Pixel format: MJPG or H264 (device-dependent).',
+    )
+    use_gstreamer_arg = DeclareLaunchArgument(
+        'use_gstreamer',
+        default_value='false',
+        description='Use GStreamer pipeline for capture (optional).',
+    )
+    gstreamer_pipeline_arg = DeclareLaunchArgument(
+        'gstreamer_pipeline',
+        default_value='',
+        description='Custom GStreamer pipeline string (optional).',
     )
 
     frame_id_arg = DeclareLaunchArgument(
@@ -201,6 +213,18 @@ def generate_launch_description() -> LaunchDescription:
         description='YAML params file for indices_node (leave empty to use node defaults).',
     )
 
+    indices_per_node_arg = DeclareLaunchArgument(
+        'indices_per_node',
+        default_value='false',
+        description='Launch one indices_node per index (avoids multi-index bottleneck).',
+    )
+
+    indices_all_arg = DeclareLaunchArgument(
+        'indices_all',
+        default_value='false',
+        description='Use all supported indices instead of the list from indices_params_file.',
+    )
+
     static_tf_optical = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
@@ -248,6 +272,14 @@ def generate_launch_description() -> LaunchDescription:
                     LaunchConfiguration('pixel_format'),
                     value_type=str,
                 ),
+                'use_gstreamer': ParameterValue(
+                    LaunchConfiguration('use_gstreamer'),
+                    value_type=bool,
+                ),
+                'gstreamer_pipeline': ParameterValue(
+                    LaunchConfiguration('gstreamer_pipeline'),
+                    value_type=str,
+                ),
                 'frame_id': ParameterValue(
                     LaunchConfiguration('frame_id'),
                     value_type=str,
@@ -280,29 +312,96 @@ def generate_launch_description() -> LaunchDescription:
         ],
     )
 
-    indices_node = Node(
-        package='mapir_camera_ros2',
-        executable='indices_node',
-        namespace=LaunchConfiguration('namespace'),
-        name='indices',
-        output='screen',
-        condition=IfCondition(LaunchConfiguration('enable_indices')),
-        parameters=[
-            LaunchConfiguration('indices_params_file'),
-            {
-                'enabled': ParameterValue(
-                    LaunchConfiguration('indices_enabled'),
-                    value_type=bool,
-                ),
-                'debug': ParameterValue(LaunchConfiguration('debug'), value_type=bool),
-                'qos_best_effort': ParameterValue(
-                    LaunchConfiguration('qos_best_effort'),
-                    value_type=bool,
-                ),
-                'qos_depth': ParameterValue(LaunchConfiguration('qos_depth'), value_type=int),
-            },
-        ],
-    )
+    def _as_bool(value: str) -> bool:
+        return value.strip().lower() in ('1', 'true', 'yes', 'on')
+
+    def _extract_indices_from_file(path: str) -> list[str]:
+        if not path or not os.path.exists(path):
+            return []
+        indices: list[str] = []
+        try:
+            with open(path, encoding='utf-8') as handle:
+                for line in handle:
+                    match = re.search(r'^\s*indices:\s*\[(.*)\]\s*$', line)
+                    if match:
+                        raw = match.group(1)
+                        for item in raw.split(','):
+                            name = item.strip()
+                            if name:
+                                indices.append(name)
+                        break
+        except OSError:
+            return []
+        return indices
+
+    def _build_indices_nodes(context, *args, **kwargs):
+        if not _as_bool(LaunchConfiguration('enable_indices').perform(context)):
+            return []
+
+        per_node = _as_bool(LaunchConfiguration('indices_per_node').perform(context))
+        use_all = _as_bool(LaunchConfiguration('indices_all').perform(context))
+        params_file = LaunchConfiguration('indices_params_file').perform(context)
+
+        if use_all:
+            indices_list = sorted(supported_spectral_indices())
+        else:
+            indices_list = _extract_indices_from_file(params_file)
+
+        params_list = []
+        if params_file and os.path.exists(params_file):
+            params_list.append(params_file)
+
+        common_params = {
+            'enabled': ParameterValue(
+                LaunchConfiguration('indices_enabled'),
+                value_type=bool,
+            ),
+            'debug': ParameterValue(LaunchConfiguration('debug'), value_type=bool),
+            'qos_best_effort': ParameterValue(
+                LaunchConfiguration('qos_best_effort'),
+                value_type=bool,
+            ),
+            'qos_depth': ParameterValue(LaunchConfiguration('qos_depth'), value_type=int),
+        }
+
+        if not per_node:
+            params = params_list + [common_params]
+            return [
+                Node(
+                    package='mapir_camera_ros2',
+                    executable='indices_node',
+                    namespace=LaunchConfiguration('namespace'),
+                    name='indices',
+                    output='screen',
+                    parameters=params,
+                )
+            ]
+
+        if not indices_list:
+            return [
+                LogInfo(msg='indices_per_node enabled but no indices list found; no indices nodes launched.')
+            ]
+
+        nodes = []
+        for index_name in indices_list:
+            safe_name = f"indices_{index_name}".replace('/', '_')
+            params = params_list + [
+                common_params,
+                {
+                    'indices': ParameterValue([index_name], value_type=list),
+                },
+            ]
+            nodes.append(
+                Node(
+                    package='mapir_camera_ros2',
+                    executable='indices_node',
+                    namespace=LaunchConfiguration('namespace'),
+                    name=safe_name,
+                    output='screen',
+                    parameters=params,
+                )
+            )
+        return nodes
 
     return LaunchDescription([
         namespace_arg,
@@ -312,6 +411,8 @@ def generate_launch_description() -> LaunchDescription:
         image_height_arg,
         framerate_arg,
         pixel_format_arg,
+        use_gstreamer_arg,
+        gstreamer_pipeline_arg,
         frame_id_arg,
         camera_name_arg,
         camera_info_url_arg,
@@ -331,7 +432,9 @@ def generate_launch_description() -> LaunchDescription:
         enable_indices_arg,
         indices_enabled_arg,
         indices_params_file_arg,
+        indices_per_node_arg,
+        indices_all_arg,
         static_tf_optical,
         camera_node,
-        indices_node,
+        OpaqueFunction(function=_build_indices_nodes),
     ])

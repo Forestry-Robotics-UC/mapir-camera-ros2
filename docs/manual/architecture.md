@@ -4,7 +4,8 @@
 
 ## Repository layout
 
-- `mapir_camera_ros2/`: ROS-facing nodes (rclpy publishers/subscribers, parameters, QoS).
+- `mapir_camera_ros2/`: ROS-facing Python nodes (rclpy publishers/subscribers, parameters, QoS).
+- `mapir_camera_cpp/`: ROS-facing C++ node (rclcpp publishers/subscribers).
 - `mapir_camera_core/`: ROS-agnostic logic:
   - V4L2/OpenCV capture helpers (`v4l2_camera.py`)
   - multispectral index math (`spectral_indices.py`)
@@ -21,4 +22,3 @@
 
 Keep ROS-independent processing in `mapir_camera_core` so it can be reused later
 for non-ROS interfaces (e.g., HTTP SDK, file batch processing).
-

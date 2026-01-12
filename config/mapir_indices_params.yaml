@@ -23,7 +23,8 @@
     # Supported: evi, fci1, fci2, gemi, gari, gci, gli, gndvi, gosavi, grvi,
     # gsavi, lai, lci, mnli, msavi2, ndre, ndvi, nli, osavi, rdvi, savi, tdvi,
     # vari, wdrvi
-    indices: [ndvi, gndvi, osavi, savi, wdrvi]
+    # Keep to 1-2 indices at a time for real-time.
+    indices: [ndvi, osavi]
 
     # Band→channel preset (best-effort). Options: RGN, NGB, OCN, RGB.
     filter_set: RGN
