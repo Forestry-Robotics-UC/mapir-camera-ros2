@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+from mapir_camera_ros2.camera_node import main
+
+
+if __name__ == "__main__":
+    main()

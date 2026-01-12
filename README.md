@@ -1,4 +1,4 @@
-# MAPIR Survey3 ROS 2 Camera Driver (Jazzy)
+# MAPIR Survey3 ROS 2 Camera Driver
 
 ROS 2 Jazzy camera driver for MAPIR Survey3 cameras (including OCN variants),
 implemented in Python (ament-python) using OpenCV + V4L2.
@@ -175,7 +175,7 @@ ros2 run mapir_camera_ros2 camera_node
 ```
 Direct execution (C++ node):
 ```
-ros2 run mapir_camera_cpp camera_node_cpp
+ros2 run mapir_camera_ros2 camera_node_cpp
 ```
 Direct execution using the installed preset params file:
 ```

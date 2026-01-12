@@ -58,6 +58,12 @@ def generate_launch_description() -> LaunchDescription:
         description='Path to a ROS 2 params YAML file for camera_node.',
     )
 
+    camera_impl_arg = DeclareLaunchArgument(
+        'camera_impl',
+        default_value='cpp',
+        description='Camera implementation: "py" (camera_node) or "cpp" (camera_node_cpp).',
+    )
+
     video_device_arg = DeclareLaunchArgument(
         'video_device',
         default_value='/dev/video0',
@@ -243,77 +249,89 @@ def generate_launch_description() -> LaunchDescription:
         ],
     )
 
-    camera_node = Node(
-        package='mapir_camera_ros2',
-        executable='camera_node',
-        namespace=LaunchConfiguration('namespace'),
-        name='camera',
-        output='screen',
-        parameters=[
-            LaunchConfiguration('camera_params_file'),
-            {
-                'video_device': ParameterValue(
-                    LaunchConfiguration('video_device'),
-                    value_type=str,
-                ),
-                'image_width': ParameterValue(
-                    LaunchConfiguration('image_width'),
-                    value_type=int,
-                ),
-                'image_height': ParameterValue(
-                    LaunchConfiguration('image_height'),
-                    value_type=int,
-                ),
-                'framerate': ParameterValue(
-                    LaunchConfiguration('framerate'),
-                    value_type=float,
-                ),
-                'pixel_format': ParameterValue(
-                    LaunchConfiguration('pixel_format'),
-                    value_type=str,
-                ),
-                'use_gstreamer': ParameterValue(
-                    LaunchConfiguration('use_gstreamer'),
-                    value_type=bool,
-                ),
-                'gstreamer_pipeline': ParameterValue(
-                    LaunchConfiguration('gstreamer_pipeline'),
-                    value_type=str,
-                ),
-                'frame_id': ParameterValue(
-                    LaunchConfiguration('frame_id'),
-                    value_type=str,
-                ),
-                'camera_name': ParameterValue(
-                    LaunchConfiguration('camera_name'),
-                    value_type=str,
-                ),
-                'camera_info_url': ParameterValue(
-                    LaunchConfiguration('camera_info_url'),
-                    value_type=str,
-                ),
-                'qos_best_effort': ParameterValue(
-                    LaunchConfiguration('qos_best_effort'),
-                    value_type=bool,
-                ),
-                'qos_depth': ParameterValue(
-                    LaunchConfiguration('qos_depth'),
-                    value_type=int,
-                ),
-                'debug': ParameterValue(
-                    LaunchConfiguration('debug'),
-                    value_type=bool,
-                ),
-                'debug_period_s': ParameterValue(
-                    LaunchConfiguration('debug_period_s'),
-                    value_type=float,
-                ),
-            },
-        ],
-    )
+    camera_params = [
+        LaunchConfiguration('camera_params_file'),
+        {
+            'video_device': ParameterValue(
+                LaunchConfiguration('video_device'),
+                value_type=str,
+            ),
+            'image_width': ParameterValue(
+                LaunchConfiguration('image_width'),
+                value_type=int,
+            ),
+            'image_height': ParameterValue(
+                LaunchConfiguration('image_height'),
+                value_type=int,
+            ),
+            'framerate': ParameterValue(
+                LaunchConfiguration('framerate'),
+                value_type=float,
+            ),
+            'pixel_format': ParameterValue(
+                LaunchConfiguration('pixel_format'),
+                value_type=str,
+            ),
+            'use_gstreamer': ParameterValue(
+                LaunchConfiguration('use_gstreamer'),
+                value_type=bool,
+            ),
+            'gstreamer_pipeline': ParameterValue(
+                LaunchConfiguration('gstreamer_pipeline'),
+                value_type=str,
+            ),
+            'frame_id': ParameterValue(
+                LaunchConfiguration('frame_id'),
+                value_type=str,
+            ),
+            'camera_name': ParameterValue(
+                LaunchConfiguration('camera_name'),
+                value_type=str,
+            ),
+            'camera_info_url': ParameterValue(
+                LaunchConfiguration('camera_info_url'),
+                value_type=str,
+            ),
+            'qos_best_effort': ParameterValue(
+                LaunchConfiguration('qos_best_effort'),
+                value_type=bool,
+            ),
+            'qos_depth': ParameterValue(
+                LaunchConfiguration('qos_depth'),
+                value_type=int,
+            ),
+            'debug': ParameterValue(
+                LaunchConfiguration('debug'),
+                value_type=bool,
+            ),
+            'debug_period_s': ParameterValue(
+                LaunchConfiguration('debug_period_s'),
+                value_type=float,
+            ),
+        },
+    ]
 
     def _as_bool(value: str) -> bool:
         return value.strip().lower() in ('1', 'true', 'yes', 'on')
+
+    def _build_camera_node(context, *args, **kwargs):
+        impl = LaunchConfiguration('camera_impl').perform(context).strip().lower()
+        if impl in ('cpp', 'c++', 'cxx'):
+            package = 'mapir_camera_ros2'
+            executable = 'camera_node_cpp'
+        else:
+            package = 'mapir_camera_ros2'
+            executable = 'camera_node'
+        return [
+            Node(
+                package=package,
+                executable=executable,
+                namespace=LaunchConfiguration('namespace'),
+                name='camera',
+                output='screen',
+                parameters=camera_params,
+            )
+        ]
 
     def _extract_indices_from_file(path: str) -> list[str]:
         if not path or not os.path.exists(path):
@@ -406,6 +424,7 @@ def generate_launch_description() -> LaunchDescription:
     return LaunchDescription([
         namespace_arg,
         camera_params_file_arg,
+        camera_impl_arg,
         video_device_arg,
         image_width_arg,
         image_height_arg,
@@ -435,6 +454,6 @@ def generate_launch_description() -> LaunchDescription:
         indices_per_node_arg,
         indices_all_arg,
         static_tf_optical,
-        camera_node,
+        OpaqueFunction(function=_build_camera_node),
         OpaqueFunction(function=_build_indices_nodes),
     ])

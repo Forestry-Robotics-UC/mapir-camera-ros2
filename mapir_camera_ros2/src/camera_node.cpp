@@ -79,6 +79,8 @@ class MapirCameraCppNode : public rclcpp::Node {
       RCLCPP_INFO(get_logger(), "Params: device=%s size=%dx%d fps=%.2f fmt=%s frame_id=%s camera_name=%s",
                   video_device_.c_str(), req_width_, req_height_, req_fps_, pixel_format_.c_str(),
                   frame_id_.c_str(), camera_name_.c_str());
+      RCLCPP_INFO(get_logger(), "QoS: reliability=%s depth=%d",
+                  qos_best_effort_ ? "BEST_EFFORT" : "RELIABLE", qos_depth_);
     }
     rclcpp::QoS qos_profile(qos_depth_);
     qos_profile.reliability(qos_best_effort_ ? RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT
@@ -94,8 +96,15 @@ class MapirCameraCppNode : public rclcpp::Node {
       RCLCPP_INFO(get_logger(), "camera calibration URL: %s", camera_info_url_.c_str());
       cinfo_manager_->loadCameraInfo(camera_info_url_);
     }
+    if (debug_ && !(cinfo_manager_ && cinfo_manager_->isCalibrated())) {
+      RCLCPP_WARN(get_logger(), "No valid calibration loaded; using default CameraInfo.");
+    }
 
     open_camera();
+
+    last_stats_t_ = std::chrono::steady_clock::now();
+    last_fail_log_t_ = last_stats_t_;
+    last_frame_t_ = last_stats_t_;
 
     timer_period_ = std::chrono::duration<double>(1.0 / req_fps_);
     timer_ = create_wall_timer(
@@ -177,13 +186,27 @@ class MapirCameraCppNode : public rclcpp::Node {
   void capture_and_publish() {
     cv::Mat frame;
     if (!cap_.read(frame) || frame.empty()) {
+      fail_reads_ += 1;
       if (debug_) {
-        RCLCPP_WARN(get_logger(), "Camera read failed");
+        auto now = std::chrono::steady_clock::now();
+        const double dt_s = std::chrono::duration<double>(now - last_fail_log_t_).count();
+        if (dt_s >= debug_period_s_) {
+          RCLCPP_WARN(get_logger(), "Camera read failed (fail_reads=%d)", fail_reads_);
+          last_fail_log_t_ = now;
+        }
       }
       return;
     }
 
     auto stamp = get_clock()->now();
+    auto now = std::chrono::steady_clock::now();
+    if (last_frame_t_.time_since_epoch().count() > 0) {
+      const double dt_s = std::chrono::duration<double>(now - last_frame_t_).count();
+      if (dt_s > max_inter_frame_s_) {
+        max_inter_frame_s_ = dt_s;
+      }
+    }
+    last_frame_t_ = now;
 
     std_msgs::msg::Header header;
     header.stamp = stamp;
@@ -201,6 +224,21 @@ class MapirCameraCppNode : public rclcpp::Node {
 
     image_pub_->publish(*img_msg);
     cinfo_pub_->publish(cinfo);
+    pub_frames_ += 1;
+
+    if (debug_) {
+      const double stats_dt_s = std::chrono::duration<double>(now - last_stats_t_).count();
+      if (stats_dt_s >= debug_period_s_) {
+        const int frames_since = pub_frames_ - last_stats_pub_frames_;
+        const double est_hz = frames_since / std::max(1e-6, stats_dt_s);
+        RCLCPP_INFO(get_logger(),
+                    "Stats: published_frames=%d fail_reads=%d est_pub_hz=%.2f max_inter_frame_dt=%.4fs",
+                    pub_frames_, fail_reads_, est_hz, max_inter_frame_s_);
+        last_stats_pub_frames_ = pub_frames_;
+        last_stats_t_ = now;
+        max_inter_frame_s_ = 0.0;
+      }
+    }
   }
 
   bool debug_ = false;
@@ -222,6 +260,13 @@ class MapirCameraCppNode : public rclcpp::Node {
 
   int width_ = 0;
   int height_ = 0;
+  int fail_reads_ = 0;
+  int pub_frames_ = 0;
+  int last_stats_pub_frames_ = 0;
+  double max_inter_frame_s_ = 0.0;
+  std::chrono::steady_clock::time_point last_stats_t_;
+  std::chrono::steady_clock::time_point last_fail_log_t_;
+  std::chrono::steady_clock::time_point last_frame_t_;
 
   cv::VideoCapture cap_;
 

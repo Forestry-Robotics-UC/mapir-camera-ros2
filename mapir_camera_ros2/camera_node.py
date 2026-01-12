@@ -250,7 +250,7 @@ class MapirSurvey3CameraNode(Node):
         )
 
         if self.debug and negotiation.backend_id is not None:
-            self.get_logger().debug(f'OpenCV backend id: {negotiation.backend_id}')
+            self.get_logger().info(f'OpenCV backend id: {negotiation.backend_id}')
 
     def _build_gstreamer_pipeline(self) -> str:
         """Return a GStreamer pipeline string for USB camera capture."""
@@ -306,7 +306,7 @@ class MapirSurvey3CameraNode(Node):
             return self.cinfo_manager.getCameraInfo()
         except CameraInfoMissingError:
             if self.debug:
-                self.get_logger().debug('CameraInfo missing; using default CameraInfo()')
+                self.get_logger().info('CameraInfo missing; using default CameraInfo()')
             return self._default_camerainfo()
         except Exception as ex:
             self.get_logger().warn(
@@ -361,7 +361,7 @@ class MapirSurvey3CameraNode(Node):
                 dt = max(1e-6, now - self._last_stats_log_t)
                 est_hz = frames_since / dt
 
-                self.get_logger().debug(
+                self.get_logger().info(
                     'Stats: '
                     f'published_frames={self._pub_frames}, '
                     f'fail_reads={self._fail_reads}, '

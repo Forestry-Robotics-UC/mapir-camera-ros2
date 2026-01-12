@@ -401,7 +401,7 @@ class MapirIndicesNode(Node):
                 hz = 0.0
                 if self._last_compute_s is not None and self._last_compute_s > 0:
                     hz = 1.0 / self._last_compute_s
-                self.get_logger().debug(
+                self.get_logger().info(
                     f'Computed {len(computed)}/{len(self.index_pubs)} indices; '
                     f'compute_time={self._last_compute_s * 1000.0:.2f}ms (~{hz:.1f}Hz)'
                 )
