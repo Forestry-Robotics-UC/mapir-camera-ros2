@@ -49,13 +49,6 @@ from mapir_camera_ros2.core.spectral_indices import supported_spectral_indices
 def generate_launch_description() -> LaunchDescription:
     pkg_share = get_package_share_directory('mapir_camera_ros2')
 
-    default_camera_params_file = os.path.join(pkg_share, 'config', 'mapir_camera_params.yaml')
-
-    default_indices_params_file = os.path.join(pkg_share, 'config', 'mapir_indices_params.yaml')
-    default_indices_params = (
-        default_indices_params_file if os.path.exists(default_indices_params_file) else ''
-    )
-
     default_reflectance_params_file = os.path.join(pkg_share, 'config', 'reflectance_ocn.yaml')
     default_reflectance_params = (
         default_reflectance_params_file
@@ -71,7 +64,7 @@ def generate_launch_description() -> LaunchDescription:
 
     camera_params_file_arg = DeclareLaunchArgument(
         'camera_params_file',
-        default_value=default_camera_params_file,
+        default_value='',
         description='Path to a ROS 2 params YAML file for camera_node.',
     )
 
@@ -79,48 +72,6 @@ def generate_launch_description() -> LaunchDescription:
         'camera_info_url',
         default_value='',
         description='Override camera_info_url (file://... YAML).',
-    )
-
-    camera_debug_arg = DeclareLaunchArgument(
-        'camera_debug',
-        default_value='',
-        description='Override camera_node debug flag (true/false).',
-    )
-
-    video_device_arg = DeclareLaunchArgument(
-        'video_device',
-        default_value='',
-        description='Override video_device (e.g., /dev/video1).',
-    )
-
-    pixel_format_arg = DeclareLaunchArgument(
-        'pixel_format',
-        default_value='',
-        description='Override pixel_format (MJPG or H264).',
-    )
-
-    use_gstreamer_arg = DeclareLaunchArgument(
-        'use_gstreamer',
-        default_value='',
-        description='Override use_gstreamer (true/false).',
-    )
-
-    image_width_arg = DeclareLaunchArgument(
-        'image_width',
-        default_value='',
-        description='Override image_width (pixels).',
-    )
-
-    image_height_arg = DeclareLaunchArgument(
-        'image_height',
-        default_value='',
-        description='Override image_height (pixels).',
-    )
-
-    framerate_arg = DeclareLaunchArgument(
-        'framerate',
-        default_value='',
-        description='Override framerate (Hz).',
     )
 
     camera_impl_arg = DeclareLaunchArgument(
@@ -189,7 +140,7 @@ def generate_launch_description() -> LaunchDescription:
 
     indices_params_file_arg = DeclareLaunchArgument(
         'indices_params_file',
-        default_value=default_indices_params,
+        default_value='',
         description='YAML params file for indices_node (leave empty to use node defaults).',
     )
 
@@ -244,18 +195,6 @@ def generate_launch_description() -> LaunchDescription:
     def _as_bool(value: str) -> bool:
         return value.strip().lower() in ('1', 'true', 'yes', 'on')
 
-    def _maybe_int(value: str) -> int | None:
-        text = value.strip()
-        if not text:
-            return None
-        return int(text)
-
-    def _maybe_float(value: str) -> float | None:
-        text = value.strip()
-        if not text:
-            return None
-        return float(text)
-
     def _build_camera_node(context, *args, **kwargs):
         impl = LaunchConfiguration('camera_impl').perform(context).strip().lower()
         if impl in ('cpp', 'c++', 'cxx'):
@@ -264,31 +203,13 @@ def generate_launch_description() -> LaunchDescription:
         else:
             package = 'mapir_camera_ros2'
             executable = 'camera_node'
-        params = [LaunchConfiguration('camera_params_file')]
+        params = []
+        camera_params_file = LaunchConfiguration('camera_params_file').perform(context).strip()
+        if camera_params_file:
+            params.append(camera_params_file)
         camera_info_url = LaunchConfiguration('camera_info_url').perform(context).strip()
         if camera_info_url:
             params.append({'camera_info_url': camera_info_url})
-        camera_debug = LaunchConfiguration('camera_debug').perform(context).strip()
-        if camera_debug:
-            params.append({'debug': _as_bool(camera_debug)})
-        video_device = LaunchConfiguration('video_device').perform(context).strip()
-        if video_device:
-            params.append({'video_device': video_device})
-        pixel_format = LaunchConfiguration('pixel_format').perform(context).strip()
-        if pixel_format:
-            params.append({'pixel_format': pixel_format})
-        use_gstreamer = LaunchConfiguration('use_gstreamer').perform(context).strip()
-        if use_gstreamer:
-            params.append({'use_gstreamer': _as_bool(use_gstreamer)})
-        image_width = _maybe_int(LaunchConfiguration('image_width').perform(context))
-        if image_width is not None:
-            params.append({'image_width': image_width})
-        image_height = _maybe_int(LaunchConfiguration('image_height').perform(context))
-        if image_height is not None:
-            params.append({'image_height': image_height})
-        framerate = _maybe_float(LaunchConfiguration('framerate').perform(context))
-        if framerate is not None:
-            params.append({'framerate': framerate})
         return [
             Node(
                 package=package,
@@ -402,13 +323,6 @@ def generate_launch_description() -> LaunchDescription:
         namespace_arg,
         camera_params_file_arg,
         camera_info_url_arg,
-        camera_debug_arg,
-        video_device_arg,
-        pixel_format_arg,
-        use_gstreamer_arg,
-        image_width_arg,
-        image_height_arg,
-        framerate_arg,
         camera_impl_arg,
         publish_static_tf_arg,
         static_tf_parent_arg,
