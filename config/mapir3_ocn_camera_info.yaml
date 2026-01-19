@@ -1,0 +1,20 @@
+image_width: 1280
+image_height: 720
+camera_name: mapir3_ocn
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [660.4935450779367, 0.0, 604.8379179623122, 0.0, 665.8044733408661, 365.83289599041404, 0.0, 0.0, 1.0]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [0.04973442642444019, -0.044054076561052494, 0.004359072004169962, 0.0023578479066367537, 0.0]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [665.9494018554688, 0.0, 606.7075010876033, 0.0, 0.0, 675.634765625, 368.5995056614047, 0.0, 0.0, 0.0, 1.0, 0.0]

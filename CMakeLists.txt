@@ -16,17 +16,17 @@ find_package(rcl_interfaces REQUIRED)
 find_package(OpenCV REQUIRED)
 
 ament_python_install_package(mapir_camera_ros2)
-ament_python_install_package(mapir_camera_core)
 
 install(PROGRAMS
-  mapir_camera_ros2/scripts/camera_node
-  mapir_camera_ros2/scripts/indices_node
+  scripts/camera_node
+  scripts/indices_node
+  scripts/reflectance_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
-add_executable(camera_node_cpp mapir_camera_ros2/src/camera_node.cpp)
+add_executable(camera_node_cpp src/camera_node.cpp)
 target_include_directories(camera_node_cpp PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/mapir_camera_ros2/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
   ${OpenCV_INCLUDE_DIRS}
 )
@@ -43,7 +43,7 @@ target_link_libraries(camera_node_cpp ${OpenCV_LIBS})
 install(TARGETS camera_node_cpp
   DESTINATION lib/${PROJECT_NAME}
 )
-install(DIRECTORY mapir_camera_ros2/include/
+install(DIRECTORY include/
   DESTINATION include
 )
 
@@ -58,9 +58,33 @@ install(FILES resource/mapir_camera_ros2
 )
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_pytest REQUIRED)
   find_package(ament_cmake_gtest REQUIRED)
-  ament_add_gtest(test_gstreamer_pipeline mapir_camera_ros2/test/test_gstreamer_pipeline.cpp)
-  target_include_directories(test_gstreamer_pipeline PUBLIC mapir_camera_ros2/include)
+  ament_add_gtest(test_gstreamer_pipeline test/test_gstreamer_pipeline.cpp)
+  target_include_directories(test_gstreamer_pipeline PUBLIC include)
+
+  if(NOT DEFINED AMENT_CMAKE_PYTEST_WITH_COVERAGE)
+    set(AMENT_CMAKE_PYTEST_WITH_COVERAGE OFF CACHE BOOL "Pytest coverage handled via PYTEST_ADDOPTS")
+  endif()
+  # Prevent lint tools from scanning generated build artifacts.
+  file(WRITE "${CMAKE_BINARY_DIR}/../AMENT_IGNORE" "")
+  file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/ros_logs")
+  ament_add_pytest_test(pytests test
+    ENV
+      "PYTEST_ADDOPTS=-m \"not performance\" --cov=mapir_camera_ros2.core --cov-report=term --cov-fail-under=90"
+      "ROS_LOG_DIR=${CMAKE_BINARY_DIR}/ros_logs"
+  )
+  ament_add_pytest_test(perf_tests test/performance
+    ENV
+      "PYTEST_ADDOPTS=-m performance"
+      "ROS_LOG_DIR=${CMAKE_BINARY_DIR}/ros_logs"
+  )
+
+  find_package(ament_lint_auto REQUIRED)
+  set(ament_cmake_flake8_CONFIG_FILE
+    "${CMAKE_CURRENT_SOURCE_DIR}/test/ament_flake8.ini")
+  set(AMENT_LINT_AUTO_FILE_EXCLUDE build install log .venv doc/_build)
+  ament_lint_auto_find_test_dependencies()
 endif()
 
 ament_package()

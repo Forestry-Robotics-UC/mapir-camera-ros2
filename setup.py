@@ -26,8 +26,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'camera_node = mapir_camera_ros2.camera_node:main',
-            'indices_node = mapir_camera_ros2.indices_node:main',
+            'camera_node = mapir_camera_ros2.nodes.camera_node:main',
+            'indices_node = mapir_camera_ros2.nodes.indices_node:main',
+            'reflectance_node = mapir_camera_ros2.nodes.reflectance_node:main',
         ],
     },
 )

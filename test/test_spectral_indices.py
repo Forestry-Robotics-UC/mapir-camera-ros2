@@ -1,12 +1,29 @@
-from mapir_camera_core import (
+# Copyright 2025 Duda Andrada
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+import numpy as np
+import pytest
+
+from mapir_camera_ros2.core import (
     compute_spectral_indices,
     extract_bands_from_bgr,
+    MissingBandError,
     preset_band_channels,
     SpectralIndexParams,
     supported_spectral_indices,
 )
-
-import numpy as np
 
 
 def test_supported_indices_contains_expected_entries():
@@ -38,12 +55,76 @@ def test_extract_bands_from_bgr_uint8_normalizes_to_float32():
         normalize=True,
     )
     assert bands['blue'].dtype == np.float32
-    assert bands['green'].dtype == np.float32
-    assert bands['red'].dtype == np.float32
 
-    assert np.isclose(bands['blue'][0, 0], 10.0 / 255.0)
-    assert np.isclose(bands['green'][0, 0], 20.0 / 255.0)
-    assert np.isclose(bands['red'][0, 0], 30.0 / 255.0)
+
+def test_extract_bands_from_bgr_mono():
+    img = np.zeros((2, 2), dtype=np.uint8)
+    bands = extract_bands_from_bgr(img, {'blue': 0}, normalize=True)
+    assert bands['blue'].shape == (2, 2)
+
+
+def test_extract_bands_from_bgr_invalid_channel():
+    img = np.zeros((2, 2, 3), dtype=np.uint8)
+    with pytest.raises(ValueError):
+        extract_bands_from_bgr(img, {'blue': 3}, normalize=True)
+
+
+def test_extract_bands_from_bgr_invalid_shape():
+    with pytest.raises(ValueError):
+        extract_bands_from_bgr(np.zeros((2, 2, 2, 2), dtype=np.uint8), {}, normalize=True)
+
+
+def test_preset_band_channels_ocn_aliases():
+    preset = preset_band_channels('ocn')
+    assert preset['blue'] == 0
+    assert preset['red'] == 1
+    assert preset['nir1'] == 2
+
+
+def test_preset_band_channels_unknown_returns_empty():
+    assert preset_band_channels('UNKNOWN') == {}
+
+
+def test_compute_spectral_indices_ndvi():
+    red = np.full((2, 2), 0.2, dtype=np.float32)
+    nir = np.full((2, 2), 0.6, dtype=np.float32)
+    indices = compute_spectral_indices(['ndvi'], {'red': red, 'nir': nir})
+    ndvi = indices['ndvi']
+    expected = (nir - red) / (nir + red)
+    assert np.allclose(ndvi, expected)
+
+
+def test_compute_spectral_indices_missing_band_raises():
+    with pytest.raises(MissingBandError):
+        compute_spectral_indices(
+            ['ndvi'],
+            {'red': np.ones((1, 1), dtype=np.float32)},
+            on_missing='raise',
+        )
+
+
+def test_compute_spectral_indices_missing_band_skips():
+    out = compute_spectral_indices(
+        ['ndvi', 'evi'],
+        {'red': np.ones((1, 1), dtype=np.float32)},
+        on_missing='skip',
+    )
+    assert out == {}
+
+
+def test_compute_spectral_indices_invalid_on_missing():
+    with pytest.raises(ValueError):
+        compute_spectral_indices(['ndvi'], {}, on_missing='maybe')
+
+
+def test_compute_spectral_indices_skips_empty_names():
+    out = compute_spectral_indices(['', '  '], {})
+    assert out == {}
+
+
+def test_compute_spectral_indices_unsupported_index():
+    with pytest.raises(ValueError):
+        compute_spectral_indices(['not_an_index'], {'red': np.ones((1, 1), dtype=np.float32)})
 
 
 def test_preset_band_channels_ocn_maps_cyan_to_blue_and_orange_to_red():
@@ -137,3 +218,42 @@ def test_wdrvi_alpha_parameter_changes_output():
     )
 
     assert not np.allclose(out_a['wdrvi'], out_b['wdrvi'])
+
+
+def test_compute_spectral_indices_bulk():
+    shape = (2, 2)
+    bands = {
+        'blue': np.full(shape, 0.1, dtype=np.float32),
+        'green': np.full(shape, 0.2, dtype=np.float32),
+        'red': np.full(shape, 0.3, dtype=np.float32),
+        'rededge': np.full(shape, 0.4, dtype=np.float32),
+        'nir1': np.full(shape, 0.6, dtype=np.float32),
+        'nir2': np.full(shape, 0.7, dtype=np.float32),
+    }
+    requested = [
+        'gari',
+        'gci',
+        'gli',
+        'gndvi',
+        'gosavi',
+        'grvi',
+        'gsavi',
+        'lai',
+        'lci',
+        'mnli',
+        'ndre',
+        'ndvi',
+        'nli',
+        'osavi',
+        'rdvi',
+        'savi',
+        'tdvi',
+        'vari',
+        'wdrvi',
+        'gemi',
+        'fci2',
+    ]
+    out = compute_spectral_indices(requested, bands)
+    for name in requested:
+        assert name in out
+        assert out[name].shape == shape

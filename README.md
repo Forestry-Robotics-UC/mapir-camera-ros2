@@ -1,7 +1,7 @@
 # MAPIR Survey3 ROS 2 Camera Driver
 
 ROS 2 Jazzy camera driver for MAPIR Survey3 cameras (including OCN variants),
-implemented in Python (ament-python) using OpenCV + V4L2.
+implemented in Python and C++ using OpenCV + V4L2 (with optional GStreamer).
 
 This package publishes synchronized camera streams suitable for real-time robotics
 pipelines and vegetation analysis workflows.
@@ -10,14 +10,16 @@ pipelines and vegetation analysis workflows.
 
 ## Documentation
 
-- Manual (Sphinx/MyST): `docs/index.md`
-- Parameters reference: `docs/manual/parameters.md`
+- Manual (Sphinx/MyST): `doc/index.md`
+- Parameters reference: `doc/manual/parameters.md`
+- Public API: `doc/manual/public_api.md`
+- Quality declaration: `QUALITY_DECLARATION.md`
 
 Build docs (GitHub Pages):
 ```
-pip install -r docs/requirements.txt
-sphinx-build -b html docs docs/_build/html
-touch docs/_build/html/.nojekyll
+pip install -r doc/requirements.txt
+sphinx-build -b html doc doc/_build/html
+touch doc/_build/html/.nojekyll
 ```
 
 ---
@@ -25,16 +27,18 @@ touch docs/_build/html/.nojekyll
 ## Features
 
 - ROS 2 Jazzy compatible
+- Python and C++ camera nodes
 - Publishes:
   - /<ns>/image_raw (sensor_msgs/Image)
   - /<ns>/camera_info (sensor_msgs/CameraInfo)
 - Supports MJPG and H264 pixel formats (device-dependent)
-- Uses V4L2 backend explicitly (no GStreamer ambiguity)
+- V4L2 capture with optional GStreamer pipelines
 - Supports up to 60 Hz
 - BEST_EFFORT QoS by default (RViz / rqt compatible)
 - Uses camera_info_manager
   - Publishes default CameraInfo if calibration is missing
 - Extensive debug logging (rate, failures, timing)
+- Optional reflectance calibration node (fiducial + 2x2 panel)
 - Designed for Jetson / embedded and desktop Linux
 
 ---
@@ -45,29 +49,29 @@ All topics are published relative to the node namespace (recommended: /mapir).
 
 - /mapir/image_raw
 - /mapir/camera_info
+- /mapir/image_rect (optional reflectance output)
 
 ---
 
 ## Parameters
 
-- Full parameter reference: `docs/manual/parameters.md`
+- Full parameter reference: `doc/manual/parameters.md`
 
 Preset YAML files (recommended):
 - `config/mapir_camera_params.yaml`
 - `config/mapir_indices_params.yaml`
-- `config/mapir_indices_ocn_params.yaml`
+- `config/reflectance_ocn.yaml`
 
 Common camera_node parameters:
 
 | Param | Type | Default | Notes |
 |---|---|---|---|
 | `video_device` | `str` | `/dev/video0` | V4L2 device path or numeric index. |
-| `image_width` | `int` | `1280` | Requested width. |
-| `image_height` | `int` | `720` | Requested height. |
+| `image_width` | `int` | `1920` | Requested width. |
+| `image_height` | `int` | `1440` | Requested height. |
 | `framerate` | `float` | `30.0` | Requested FPS. |
 | `pixel_format` | `str` | `MJPG` | `MJPG` or `H264` (device-dependent). |
-| `use_gstreamer` | `bool` | `false` | Use GStreamer pipeline for capture. |
-| `gstreamer_pipeline` | `str` | `''` | Custom GStreamer pipeline string. |
+| `use_gstreamer` | `bool` | `true` | Use GStreamer pipeline for capture. |
 | `frame_id` | `str` | `mapir3_optical_frame` | REP-105 optical frame. |
 | `camera_info_url` | `str` | `''` | `file:///.../calib.yaml`. |
 | `qos_best_effort` | `bool` | `true` | BEST_EFFORT recommended. |
@@ -77,7 +81,7 @@ Common indices_node parameters:
 | Param | Type | Default | Notes |
 |---|---|---|---|
 | `indices` | `list[str]` | `['ndvi', 'osavi']` | Add `_1`/`_2` to prefer NIR1/NIR2. |
-| `filter_set` | `str` | `''` | `RGN`, `NGB`, `OCN`, `RGB`. |
+| `filter_set` | `str` | `OCN` | `RGN`, `NGB`, `OCN`, `RGB`. |
 | `normalize_input` | `bool` | `true` | Normalize integer images to `[0,1]`. |
 | `downsample_factor` | `int` | `1` | Stride downsample for CPU savings. |
 | `publish_every_n` | `int` | `1` | Publish every Nth frame. |
@@ -105,10 +109,70 @@ ros2 launch mapir_camera_ros2 mapir_camera.launch.py namespace:=mapir enable_ind
 Adjust indices + band mapping via `config/mapir_indices_params.yaml` (installed with the package).
 The `filter_set` preset is best-effort and can be overridden with explicit `*_channel` parameters.
 
-Core computations live in `mapir_camera_core`.
+Core computations live in `mapir_camera_ros2/core`.
 
-For Survey3W OCN streams, set `filter_set: OCN` (or use `config/mapir_indices_ocn_params.yaml`).
+For Survey3W OCN streams, set `filter_set: OCN`.
 The preset aliases `cyan→blue` and `orange→red` for index computation (no green/rededge band).
+
+---
+
+## Reflectance Calibration
+
+This package includes an optional `reflectance_node` that estimates per-channel
+linear reflectance using a fiducial marker + 2x2 reflectance patch panel.
+
+MAPIR T4 targets (T4-R50/T4-R125) include a fiducial marker and 2x2 panels with
+known reflectance curves. To mimic the MAPIR workflow without their software:
+
+- Capture the open target so the marker and 2x2 panels are visible.
+- Avoid harsh shadows on the fiducial border.
+- Set `fiducial_type: aruco` and tune `panel_side` (or `auto`), `panel_scale_w`,
+  `panel_scale_h`, and `panel_gap_scale` to align the panel quad with the 2x2 patches.
+- Provide `patch_reflectances` from the MAPIR curve data (averaged over your
+  bandpass). Values are in 0.0-1.0 reflectance.
+- Use `calibration_mode: continuous` to refresh calibration when the target is
+  seen again.
+
+Ambient light sensor logs (DAQ-A-SD/DAQ-M) are not supported here; use repeated
+target captures to handle changing illumination.
+
+Capture guidance (from MAPIR docs):
+
+| Model | Target size | Survey3W distance | Survey3N distance |
+|---|---|---|---|
+| T4-R50 | 50 x 50 mm | 0.2 to 5.0 m | 0.5 to 12.0 m |
+| T4-R125 | 125 x 125 mm | 0.5 to 10.0 m | 1.0 to 32.0 m |
+
+Keep the felt panels clean and avoid harsh shadows on the fiducial perimeter.
+Capture straight-on when possible for more stable patch sampling.
+
+Offline helper:
+
+- `tools/calibrate_reflectance_from_raw.py` can generate a reflectance YAML from
+  a single target image (supports `--panel-roi`).
+
+Published topics (relative to the namespace):
+
+- /<ns>/image_rect (sensor_msgs/Image, encoding 32FC3)
+- /<ns>/image_reflectance_preview (sensor_msgs/Image, encoding bgr8/mono8)
+- /<ns>/reflectance/debug (sensor_msgs/Image, encoding bgr8)
+- /<ns>/reflectance/status (std_msgs/String)
+
+Enable via launch (uses `config/reflectance_ocn.yaml` by default):
+```
+ros2 launch mapir_camera_ros2 mapir_camera.launch.py namespace:=mapir enable_reflectance:=true
+```
+
+Run directly:
+```
+ros2 run mapir_camera_ros2 reflectance_node --ros-args --params-file \
+  $(ros2 pkg prefix mapir_camera_ros2)/share/mapir_camera_ros2/config/reflectance_ocn.yaml
+```
+
+T4-R50 layout defaults to `config/reflectance_ocn.yaml`. To tune patch
+reflectances, update `patch_reflectances` in that file.
+Use `calibration_mode: once` to lock the first successful calibration.
+Set `rectify_output: true` to undistort reflectance using `camera_info`.
 
 Index summary (best use + required bands):
 
@@ -228,7 +292,7 @@ RViz QoS (image not updating):
 Run without rebuild (fast iteration):
 
 ```
-python3 -m mapir_camera_ros2.camera_node --ros-args -r __ns:=/mapir -p debug:=true
+python3 -m mapir_camera_ros2.nodes.camera_node --ros-args -r __ns:=/mapir -p debug:=true
 ```
 
 ## Docker

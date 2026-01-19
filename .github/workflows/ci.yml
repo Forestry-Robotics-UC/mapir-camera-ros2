@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, rolling, jazzy]
+
+jobs:
+  build_test:
+    runs-on: ubuntu-22.04
+    env:
+      ROS_DISTRO: jazzy
+      MAPIR_PERF_MAX_MS_CORE: '200'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup ROS 2
+        uses: ros-tooling/setup-ros@v0.7
+        with:
+          required-ros-distributions: ${{ env.ROS_DISTRO }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lcov python3-pip
+
+      - name: Install ROS dependencies
+        run: |
+          rosdep update
+          rosdep install --from-paths . --ignore-src -r -y
+
+      - name: Build
+        run: |
+          source /opt/ros/${ROS_DISTRO}/setup.bash
+          colcon build --packages-select mapir_camera_ros2 \
+            --cmake-args -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="--coverage" -DCMAKE_CXX_FLAGS="--coverage"
+
+      - name: Test
+        run: |
+          source /opt/ros/${ROS_DISTRO}/setup.bash
+          colcon test --packages-select mapir_camera_ros2 --event-handlers console_direct+
+          colcon test-result --verbose
+
+      - name: C++ Coverage Summary
+        run: |
+          lcov --no-external --capture --directory build/mapir_camera_ros2 --output-file coverage.info
+          lcov --remove coverage.info '*/src/camera_node.cpp*' --output-file coverage.info
+          python - <<'PY'
+          import re
+          import subprocess
+          import sys
+
+          out = subprocess.check_output(["lcov", "--summary", "coverage.info"], text=True)
+          match = re.search(r"lines\.*: ([0-9.]+)%", out)
+          if not match:
+              print(out)
+              sys.exit("Failed to parse coverage summary")
+          coverage = float(match.group(1))
+          print(f"C++ line coverage: {coverage:.2f}%")
+          if coverage < 90.0:
+              sys.exit("C++ coverage below 90%")
+          PY
+
+      - name: Upload Coverage Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-info
+          path: coverage.info

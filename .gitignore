@@ -71,7 +71,7 @@ instance/
 .scrapy
 
 # Sphinx documentation
-docs/_build/
+doc/_build/
 
 # PyBuilder
 .pybuilder/
@@ -214,3 +214,6 @@ tools/indices.zip
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+# MAPIR raw captures
+*.RAW
+*.raw

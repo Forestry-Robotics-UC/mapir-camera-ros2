@@ -6,15 +6,10 @@
 
 /**:
   ros__parameters:
-    # Debug
-    debug: false
-    debug_period_s: 1.0
-
-    # V4L2
-    video_device: /dev/video0
+    # Common (most users)
+    video_device: /dev/video0  # '/dev/videoX' or numeric index string
     pixel_format: MJPG  # MJPG or H264 (device-dependent)
-    use_gstreamer: false
-    gstreamer_pipeline: ''  # Custom pipeline string when use_gstreamer=true
+    use_gstreamer: false  # recommended for MJPG/H264 decode on most systems
     image_width: 1280
     image_height: 720
     framerate: 30.0
@@ -24,6 +19,11 @@
     camera_name: mapir3_ocn
     camera_info_url: ''  # file:///abs/path/to/calibration.yaml
 
-    # QoS
-    qos_best_effort: true
-    qos_depth: 5
+    # Advanced (optional)
+    debug: False
+    # debug_period_s: 1.0
+    # gstreamer_pipeline: ''  # Optional override. Leave empty to auto-build from params.
+    # reconnect_interval_s: 2.0  # retry open when camera is unplugged
+    # use_capture_thread: true  # dedicated capture thread for stable FPS
+    # qos_best_effort: true
+    # qos_depth: 5

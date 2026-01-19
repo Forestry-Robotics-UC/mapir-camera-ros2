@@ -20,9 +20,11 @@ services:
       && colcon build --symlink-install --base-paths src/mapir_camera --packages-select mapir_camera_ros2
       && source install/setup.bash
       && exec ros2 launch mapir_camera_ros2 mapir_camera.launch.py
-      camera_impl:=cpp
-      enable_indices:=true
-      indices_params_file:=/workspaces/ros2_ws/src/mapir_camera/config/mapir_indices_ocn_params.yaml"
+      camera_impl:=py
+      enable_indices:=false
+      debug:=true"
+
+      # indices_params_file:=/workspaces/ros2_ws/src/mapir_camera/config/mapir_indices_ocn_params.yaml
 
   rviz_with_camera:
     build:

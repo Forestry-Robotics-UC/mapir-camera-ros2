@@ -1,0 +1,490 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2025 Duda Andrada
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+#
+# Author: Duda Andrada
+# Maintainer: Duda Andrada <duda.andrada@isr.uc.pt>
+# License: GNU General Public License v3.0 (GPL-3.0-only)
+# Repository: mapir_survey3
+#
+# Description:
+#   ROS 2 Jazzy camera driver for MAPIR Survey3 cameras.
+#   Publishes /<ns>/image_raw and /<ns>/camera_info at up to 60 Hz.
+#   Uses OpenCV with V4L2 backend and forces MJPG/H264 (device dependent).
+#   Uses CameraInfoManager; publishes default CameraInfo if calibration missing.
+#   Includes best-practice debug logging controlled by a 'debug' parameter.
+#
+# Notes:
+#   - Best-practice QoS for camera streams is BEST_EFFORT (RViz/rqt compatible).
+#   - Debug logs are throttled with debug_period_s to avoid console spam at 30–60 Hz.
+#
+
+from __future__ import annotations
+
+import os
+import time
+from typing import Optional
+
+from camera_info_manager import CameraInfoManager
+from camera_info_manager.camera_info_manager import CameraInfoMissingError
+import cv2
+from cv_bridge import CvBridge
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
+from sensor_msgs.msg import CameraInfo, Image
+from sensor_msgs.srv import SetCameraInfo
+
+from mapir_camera_ros2.core import configure_v4l2_capture, open_v4l2_capture
+
+
+class MapirSurvey3CameraNode(Node):
+    """
+    MAPIR Survey3 camera driver node.
+
+    Publishes (under the node namespace):
+      - image_raw   (sensor_msgs/Image)
+      - camera_info (sensor_msgs/CameraInfo)
+
+    Debugging:
+      - debug:=true enables additional logging.
+      - debug_period_s throttles periodic debug output.
+    """
+
+    def __init__(self) -> None:
+        super().__init__('mapir_camera')
+
+        # -----------------------
+        # Parameters
+        # -----------------------
+        self.declare_parameter('debug', False)
+        self.declare_parameter('debug_period_s', 1.0)  # log periodic stats at this interval
+        self.declare_parameter('video_device', '/dev/video0')  # '/dev/video0' or '0'
+        self.declare_parameter('image_width', 1280)
+        self.declare_parameter('image_height', 720)
+        self.declare_parameter('framerate', 30.0)
+        self.declare_parameter('frame_id', 'mapir3_optical_frame')
+        self.declare_parameter('camera_name', 'mapir3_ocn')
+        self.declare_parameter('camera_info_url', '')  # file:///...
+        self.declare_parameter('pixel_format', 'MJPG')  # MJPG or H264
+        self.declare_parameter('use_gstreamer', False)  # use GStreamer pipeline
+        self.declare_parameter('gstreamer_pipeline', '')  # custom pipeline string
+        self.declare_parameter('reconnect_interval_s', 2.0)  # retry open when camera missing
+        self.declare_parameter('qos_depth', 5)  # queue depth for pub/sub
+        self.declare_parameter('qos_best_effort', True)  # BEST_EFFORT recommended for images
+
+        # Read parameters
+        self.debug = bool(self.get_parameter('debug').value)
+        self.debug_period_s = float(self.get_parameter('debug_period_s').value)
+
+        self.video_device = str(self.get_parameter('video_device').value)
+        self.req_width = int(self.get_parameter('image_width').value)
+        self.req_height = int(self.get_parameter('image_height').value)
+        self.req_fps = float(self.get_parameter('framerate').value)
+        self.frame_id = str(self.get_parameter('frame_id').value)
+        self.camera_name = str(self.get_parameter('camera_name').value)
+        self.camera_info_url = str(self.get_parameter('camera_info_url').value)
+        self.pixel_format = str(self.get_parameter('pixel_format').value).upper()
+        self.use_gstreamer = bool(self.get_parameter('use_gstreamer').value)
+        self.gstreamer_pipeline = str(self.get_parameter('gstreamer_pipeline').value)
+        self.reconnect_interval_s = float(
+            self.get_parameter('reconnect_interval_s').value
+        )
+
+        self.qos_depth = max(1, int(self.get_parameter('qos_depth').value))
+        self.qos_best_effort = bool(self.get_parameter('qos_best_effort').value)
+
+        if self.req_fps <= 0.0:
+            self.get_logger().warn('Invalid framerate; defaulting to 30 Hz')
+            self.req_fps = 30.0
+
+        # -----------------------
+        # Debug banner
+        # -----------------------
+        if self.debug:
+            self.get_logger().info(f'RUNNING FILE: {os.path.abspath(__file__)}')
+            self._log_table(
+                'Camera Params',
+                [
+                    ('video_device', self.video_device),
+                    ('image_size', f'{self.req_width}x{self.req_height}'),
+                    ('framerate', f'{self.req_fps:.2f}'),
+                    ('pixel_format', self.pixel_format),
+                    ('use_gstreamer', str(self.use_gstreamer).lower()),
+                    ('frame_id', self.frame_id),
+                    ('camera_name', self.camera_name),
+                    ('camera_info_url', repr(self.camera_info_url)),
+                    ('debug_period_s', f'{self.debug_period_s:.2f}'),
+                ],
+            )
+
+        # -----------------------
+        # QoS (best practice for camera images is BEST_EFFORT)
+        # -----------------------
+        reliability = (
+            ReliabilityPolicy.BEST_EFFORT
+            if self.qos_best_effort
+            else ReliabilityPolicy.RELIABLE
+        )
+        self.pub_qos = QoSProfile(
+            reliability=reliability,
+            durability=DurabilityPolicy.VOLATILE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=self.qos_depth,
+        )
+
+        if self.debug:
+            self._log_table(
+                'Publisher QoS',
+                [
+                    ('reliability', self.pub_qos.reliability.name),
+                    ('depth', str(self.pub_qos.depth)),
+                    ('durability', self.pub_qos.durability.name),
+                ],
+            )
+
+        # -----------------------
+        # Open camera (force V4L2)
+        # -----------------------
+        self.width = self.req_width
+        self.height = self.req_height
+        self.cap: Optional[cv2.VideoCapture] = None
+        self._last_open_attempt_t = 0.0
+        self._last_open_log_t = 0.0
+        self._try_open_camera(initial=True)
+
+        self.bridge = CvBridge()
+
+        # -----------------------
+        # Publishers
+        # -----------------------
+        self.image_pub = self.create_publisher(Image, 'image_raw', self.pub_qos)
+        self.cinfo_pub = self.create_publisher(CameraInfo, 'camera_info', self.pub_qos)
+
+        # -----------------------
+        # CameraInfoManager
+        # -----------------------
+        self.cinfo_manager = CameraInfoManager(
+            node=self,
+            cname=self.camera_name,
+            url=self.camera_info_url,
+        )
+
+        loaded = False
+        if self.camera_info_url:
+            self.get_logger().info(f'camera calibration URL: {self.camera_info_url}')
+
+        try:
+            loaded = self.cinfo_manager.loadCameraInfo()
+        except Exception as ex:
+            self.get_logger().warn(f'CameraInfo loadCameraInfo() raised: {ex}')
+
+        if self.camera_info_url and loaded:
+            self.get_logger().info(f'Loaded camera calibration: {self.camera_info_url}')
+        else:
+            self.get_logger().warn(
+                'No valid calibration loaded; publishing default (uncalibrated) CameraInfo. '
+                'Set "camera_info_url" to a file:// YAML to enable calibration.'
+            )
+
+        self.set_camera_info_srv = self.create_service(
+            SetCameraInfo,
+            'set_camera_info',
+            self._on_set_camera_info,
+        )
+
+        # -----------------------
+        # Runtime stats (debug) — separate throttles
+        # -----------------------
+        self._fail_reads = 0
+        self._pub_frames = 0
+
+        now = time.time()
+        self._last_stats_log_t = now
+        self._last_fail_log_t = 0.0
+        self._last_stats_pub_frames = 0
+
+        self._last_frame_t: Optional[float] = None
+        self._max_dt = 0.0
+
+        # Timer
+        self.timer_period = 1.0 / self.req_fps
+        self.timer = self.create_timer(self.timer_period, self.capture_and_publish)
+
+        self.get_logger().info(
+            f'MAPIR Survey3 Camera started: {self.req_width}x{self.req_height} '
+            f'@ {self.req_fps:.1f} Hz ({self.video_device}), '
+            f'fmt={self.pixel_format}, qos={self.pub_qos.reliability.name}'
+        )
+
+    def _open_camera(self, video_device: str) -> cv2.VideoCapture:
+        """Open camera using V4L2 backend. Accepts '/dev/videoX' or numeric index."""
+        if not self.use_gstreamer:
+            return open_v4l2_capture(video_device)
+
+        pipeline = self._build_gstreamer_pipeline()
+        if self.debug:
+            self.get_logger().info(f'GStreamer pipeline: {pipeline}')
+        return cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
+
+    def _try_open_camera(self, *, initial: bool = False) -> bool:
+        now = time.time()
+        if not initial and (now - self._last_open_attempt_t) < self.reconnect_interval_s:
+            return False
+        self._last_open_attempt_t = now
+
+        try:
+            cap = self._open_camera(self.video_device)
+        except Exception as exc:
+            if (now - self._last_open_log_t) >= self.reconnect_interval_s:
+                self.get_logger().warn(f'Camera open failed: {exc}')
+                self._last_open_log_t = now
+            return False
+
+        if not cap.isOpened():
+            if (now - self._last_open_log_t) >= self.reconnect_interval_s:
+                self.get_logger().warn(
+                    f'Failed to open video device: {self.video_device}'
+                )
+                self._last_open_log_t = now
+            return False
+
+        self.cap = cap
+        self._configure_camera()
+
+        ok, test_frame = self.cap.read()
+        if not ok or test_frame is None:
+            self.get_logger().warn(
+                'Camera opened but no frames could be read. '
+                'Check /dev/video permissions, device busy, or negotiated pixel format.'
+            )
+        else:
+            self._update_dimensions_from_frame(test_frame)
+            self.get_logger().info(
+                f'First frame OK: shape={test_frame.shape}, dtype={test_frame.dtype}'
+            )
+        return True
+
+    def _configure_camera(self) -> None:
+        """Configure pixel format, resolution, and fps; log negotiated values."""
+        if self.use_gstreamer:
+            self.width = self.req_width
+            self.height = self.req_height
+            self.get_logger().info('GStreamer capture enabled; skipping V4L2 negotiation')
+            return
+
+        if self.pixel_format not in ('MJPG', 'H264'):
+            self.get_logger().warn(
+                f'Unsupported pixel_format={self.pixel_format!r}, forcing MJPG'
+            )
+            self.pixel_format = 'MJPG'
+
+        negotiation = configure_v4l2_capture(
+            self.cap,
+            req_width=self.req_width,
+            req_height=self.req_height,
+            req_fps=self.req_fps,
+            pixel_format=self.pixel_format,
+        )
+
+        self.width = negotiation.width if negotiation.width > 0 else self.req_width
+        self.height = negotiation.height if negotiation.height > 0 else self.req_height
+
+        self.get_logger().info(
+            f'Negotiated capture: {negotiation.width}x{negotiation.height} '
+            f'@ {negotiation.fps:.2f} Hz, '
+            f'FOURCC={negotiation.fourcc_str!r}'
+        )
+
+        if self.debug and negotiation.backend_id is not None:
+            self.get_logger().info(f'OpenCV backend id: {negotiation.backend_id}')
+
+    def _build_gstreamer_pipeline(self) -> str:
+        """Return a GStreamer pipeline string for USB camera capture."""
+        custom = self.gstreamer_pipeline.strip()
+        if custom:
+            return custom
+
+        device = self.video_device
+        width = self.req_width
+        height = self.req_height
+        fps = int(round(self.req_fps))
+
+        if self.pixel_format == 'H264':
+            return (
+                f'v4l2src device={device} io-mode=2 ! '
+                f'video/x-h264,width={width},height={height},framerate={fps}/1,'
+                'stream-format=byte-stream,alignment=au ! '
+                'queue max-size-buffers=1 leaky=downstream ! '
+                'h264parse config-interval=-1 ! '
+                'avdec_h264 ! '
+                'videoconvert ! '
+                'video/x-raw,format=BGR ! '
+                'appsink drop=true max-buffers=1 sync=false'
+            )
+
+        return (
+            f'v4l2src device={device} io-mode=2 ! '
+            f'image/jpeg,width={width},height={height},framerate={fps}/1 ! '
+            'queue max-size-buffers=1 leaky=downstream ! '
+            'jpegdec ! '
+            'videoconvert ! '
+            'video/x-raw,format=BGR ! '
+            'appsink drop=true max-buffers=1 sync=false'
+        )
+
+    def _update_dimensions_from_frame(self, frame) -> None:
+        """Update width/height from the first frame if needed."""
+        try:
+            height, width = frame.shape[:2]
+        except Exception:
+            return
+        if width > 0 and height > 0:
+            self.width = int(width)
+            self.height = int(height)
+
+    def _default_camerainfo(self) -> CameraInfo:
+        """Fallback CameraInfo when no calibration is available."""
+        msg = CameraInfo()
+        msg.width = int(self.width)
+        msg.height = int(self.height)
+        return msg
+
+    def _log_table(self, title: str, rows: list[tuple[str, str]]) -> None:
+        if not rows:
+            return
+        key_width = max(len(key) for key, _ in rows)
+        val_width = max(len(value) for _, value in rows)
+        header = f'{"Param":<{key_width}} | {"Value":<{val_width}}'
+        sep = '-' * len(header)
+        lines = [title, header, sep]
+        for key, value in rows:
+            lines.append(f'{key:<{key_width}} | {value}')
+        self.get_logger().info('\n'.join(lines))
+
+    def _get_camerainfo_safe(self) -> CameraInfo:
+        """Return calibrated CameraInfo if available, otherwise a valid default."""
+        try:
+            return self.cinfo_manager.getCameraInfo()
+        except CameraInfoMissingError:
+            if self.debug:
+                self.get_logger().info('CameraInfo missing; using default CameraInfo()')
+            return self._default_camerainfo()
+        except Exception as ex:
+            self.get_logger().warn(
+                f'getCameraInfo() failed; using default CameraInfo. Reason: {ex}'
+            )
+            return self._default_camerainfo()
+
+    def _on_set_camera_info(self, req: SetCameraInfo.Request) -> SetCameraInfo.Response:
+        try:
+            return self.cinfo_manager.setCameraInfo(req)
+        except Exception as ex:
+            resp = SetCameraInfo.Response()
+            resp.success = False
+            resp.status_message = f'Failed to set camera info: {ex}'
+            return resp
+
+    def capture_and_publish(self) -> None:
+        """Timer callback: capture one frame and publish Image + CameraInfo."""
+        if self.cap is None or not self.cap.isOpened():
+            self._try_open_camera()
+            return
+
+        ret, frame = self.cap.read()
+
+        # Read failure (throttled independently)
+        if not ret or frame is None:
+            self._fail_reads += 1
+            if self.debug:
+                now = time.time()
+                if (now - self._last_fail_log_t) >= self.debug_period_s:
+                    self.get_logger().warn(
+                        f'Camera read failed (fail_reads={self._fail_reads}) '
+                        f'(device={self.video_device}, fmt={self.pixel_format})'
+                    )
+                    self._last_fail_log_t = now
+            return
+
+        # Timing stats
+        now_t = time.time()
+        if self._last_frame_t is not None:
+            dt = now_t - self._last_frame_t
+            if dt > self._max_dt:
+                self._max_dt = dt
+        self._last_frame_t = now_t
+
+        stamp = self.get_clock().now().to_msg()
+
+        img_msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
+        img_msg.header.stamp = stamp
+        img_msg.header.frame_id = self.frame_id
+
+        cinfo_msg = self._get_camerainfo_safe()
+        cinfo_msg.header.stamp = stamp
+        cinfo_msg.header.frame_id = self.frame_id
+
+        self.image_pub.publish(img_msg)
+        self.cinfo_pub.publish(cinfo_msg)
+        self._pub_frames += 1
+
+        # Periodic debug stats (throttled)
+        if self.debug:
+            now = time.time()
+            if (now - self._last_stats_log_t) >= self.debug_period_s:
+                frames_since = self._pub_frames - self._last_stats_pub_frames
+                dt = max(1e-6, now - self._last_stats_log_t)
+                est_hz = frames_since / dt
+
+                self._log_table(
+                    'Camera Stats',
+                    [
+                        ('published_frames', str(self._pub_frames)),
+                        ('fail_reads', str(self._fail_reads)),
+                        ('est_pub_hz', f'{est_hz:.2f}'),
+                        ('timer_period_s', f'{self.timer_period:.4f}'),
+                        ('max_inter_frame_dt_s', f'{self._max_dt:.4f}'),
+                    ],
+                )
+
+                self._last_stats_pub_frames = self._pub_frames
+                self._last_stats_log_t = now
+
+    def destroy_node(self):
+        """Ensure camera resource is released cleanly."""
+        try:
+            if hasattr(self, 'cap') and self.cap is not None:
+                self.cap.release()
+        finally:
+            super().destroy_node()
+
+
+def main(args=None) -> None:
+    rclpy.init(args=args)
+    node = MapirSurvey3CameraNode()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
