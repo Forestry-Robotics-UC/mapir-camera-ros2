@@ -320,92 +320,93 @@ class MapirIndicesNode(Node):
         return SetParametersResult(successful=True)
 
     def _on_image(self, msg: Image) -> None:
-        if not self.enabled:
-            return
+        with self._lock:
+            if not self.enabled:
+                return
 
-        self._frame_count += 1
-        if (self._frame_count % self.publish_every_n) != 0:
-            return
+            self._frame_count += 1
+            if (self._frame_count % self.publish_every_n) != 0:
+                return
 
-        if not self.index_pubs:
-            return
+            if not self.index_pubs:
+                return
 
-        if not self.band_channels:
-            return
+            if not self.band_channels:
+                return
 
-        t0 = time.perf_counter()
-        try:
-            frame_bgr = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        except Exception as ex:
-            if self.debug:
-                self.get_logger().warn(f'cv_bridge conversion failed: {ex}')
-            return
+            t0 = time.perf_counter()
+            try:
+                frame_bgr = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            except Exception as ex:
+                if self.debug:
+                    self.get_logger().warn(f'cv_bridge conversion failed: {ex}')
+                return
 
-        if self.downsample_factor > 1:
-            f = self.downsample_factor
-            frame_bgr = frame_bgr[::f, ::f]
+            if self.downsample_factor > 1:
+                f = self.downsample_factor
+                frame_bgr = frame_bgr[::f, ::f]
 
-        try:
-            bands = extract_bands_from_bgr(
-                frame_bgr,
-                self.band_channels,
-                normalize=self.normalize_input,
-            )
-        except Exception as ex:
-            self.get_logger().warn(f'Band extraction failed: {ex}')
-            return
-
-        computed = compute_spectral_indices(
-            requested=list(self.index_pubs.keys()),
-            bands=bands,
-            params=self.params,
-            on_missing='skip',
-        )
-
-        missing = sorted(set(self.index_pubs.keys()) - set(computed.keys()))
-        if missing and self.debug:
-            now = time.time()
-            if (now - self._last_missing_warn_t) >= self.debug_period_s:
-                self.get_logger().warn(f'Indices skipped due to missing bands: {missing}')
-                self._last_missing_warn_t = now
-
-        for name, idx_img in computed.items():
-            out_msg = self.bridge.cv2_to_imgmsg(idx_img, encoding='32FC1')
-            out_msg.header = msg.header
-            self.index_pubs[name].publish(out_msg)
-
-            if self.publish_color and name in self.color_pubs:
-                try:
-                    color_bgr = colorize_scalar_field(
-                        idx_img,
-                        vmin=self.colorize_min,
-                        vmax=self.colorize_max,
-                        colormap=self.colormap,
-                        custom_colormap=self.custom_colormap,
-                    )
-                except Exception as ex:
-                    if self.debug:
-                        self.get_logger().warn(f'Colorize failed for {name}: {ex}')
-                    continue
-
-                color_msg = self.bridge.cv2_to_imgmsg(color_bgr, encoding='bgr8')
-                color_msg.header = msg.header
-                self.color_pubs[name].publish(color_msg)
-
-        t1 = time.perf_counter()
-        self._last_compute_s = t1 - t0
-
-        if self.debug:
-            now = time.time()
-            if (now - self._last_debug_t) >= self.debug_period_s:
-                hz = 0.0
-                if self._last_compute_s is not None and self._last_compute_s > 0:
-                    hz = 1.0 / self._last_compute_s
-                self.get_logger().info(
-                    f'Computed {len(computed)}/{len(self.index_pubs)} indices; '
-                    f'compute_time={self._last_compute_s * 1000.0:.2f}ms (~{hz:.1f}Hz)'
+            try:
+                bands = extract_bands_from_bgr(
+                    frame_bgr,
+                    self.band_channels,
+                    normalize=self.normalize_input,
                 )
-                self._last_debug_t = now
+            except Exception as ex:
+                self.get_logger().warn(f'Band extraction failed: {ex}')
+                return
+
+            computed = compute_spectral_indices(
+                requested=list(self.index_pubs.keys()),
+                bands=bands,
+                params=self.params,
+                on_missing='skip',
+            )
+
+            missing = sorted(set(self.index_pubs.keys()) - set(computed.keys()))
+            if missing and self.debug:
+                now = time.time()
+                if (now - self._last_missing_warn_t) >= self.debug_period_s:
+                    self.get_logger().warn(f'Indices skipped due to missing bands: {missing}')
+                    self._last_missing_warn_t = now
+
+            for name, idx_img in computed.items():
+                out_msg = self.bridge.cv2_to_imgmsg(idx_img, encoding='32FC1')
+                out_msg.header = msg.header
+                self.index_pubs[name].publish(out_msg)
+
+                if self.publish_color and name in self.color_pubs:
+                    try:
+                        color_bgr = colorize_scalar_field(
+                            idx_img,
+                            vmin=self.colorize_min,
+                            vmax=self.colorize_max,
+                            colormap=self.colormap,
+                            custom_colormap=self.custom_colormap,
+                        )
+                    except Exception as ex:
+                        if self.debug:
+                            self.get_logger().warn(f'Colorize failed for {name}: {ex}')
+                        continue
+
+                    color_msg = self.bridge.cv2_to_imgmsg(color_bgr, encoding='bgr8')
+                    color_msg.header = msg.header
+                    self.color_pubs[name].publish(color_msg)
+
+            t1 = time.perf_counter()
+            self._last_compute_s = t1 - t0
+
+            if self.debug:
+                now = time.time()
+                if (now - self._last_debug_t) >= self.debug_period_s:
+                    hz = 0.0
+                    if self._last_compute_s is not None and self._last_compute_s > 0:
+                        hz = 1.0 / self._last_compute_s
+                    self.get_logger().info(
+                        f'Computed {len(computed)}/{len(self.index_pubs)} indices; '
+                        f'compute_time={self._last_compute_s * 1000.0:.2f}ms (~{hz:.1f}Hz)'
+                    )
+                    self._last_debug_t = now
 
 
 def main(args=None) -> None:

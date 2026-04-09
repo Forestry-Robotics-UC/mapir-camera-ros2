@@ -15,6 +15,7 @@ All topics are relative to the namespace (launch default: `namespace:=mapir`).
 |---|---|---|
 | `/<ns>/image_raw` | `sensor_msgs/Image` | Encoding `bgr8`. |
 | `/<ns>/camera_info` | `sensor_msgs/CameraInfo` | Loaded via `camera_info_manager` if provided. |
+| `/<ns>/metadata` | `std_msgs/String` | JSON payload; enabled with `metadata_enabled=true`. |
 | `/<ns>/indices/<index>` | `sensor_msgs/Image` | Encoding `32FC1` (float32). |
 | `/<ns>/indices_color/<index>` | `sensor_msgs/Image` | Optional; encoding `bgr8` (colormap). |
 
@@ -29,6 +30,13 @@ All topics are relative to the namespace (launch default: `namespace:=mapir`).
 ## Timestamps
 
 - Frames are stamped using the node clock at publish time (not a hardware timestamp).
+- Metadata topic includes ROS timestamp plus best-effort UVC timing fields from
+  `metadata_device` (e.g., `uvc_pts`, `uvc_scr_stc`) when available.
+- When startup UVC lock is enabled, metadata also includes:
+  - `uvc_controls_device`
+  - `uvc_controls_locked`
+  - `uvc_controls_requested`
+  - `uvc_controls_applied`
 
 ## Runtime Toggles
 

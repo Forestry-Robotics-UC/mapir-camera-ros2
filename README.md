@@ -28,6 +28,7 @@ touch docs/_build/html/.nojekyll
 - Publishes:
   - /<ns>/image_raw (sensor_msgs/Image)
   - /<ns>/camera_info (sensor_msgs/CameraInfo)
+  - /<ns>/metadata (std_msgs/String JSON, optional)
 - Supports MJPG and H264 pixel formats (device-dependent)
 - Uses V4L2 backend explicitly (no GStreamer ambiguity)
 - Supports up to 60 Hz
@@ -45,6 +46,7 @@ All topics are published relative to the node namespace (recommended: /mapir).
 
 - /mapir/image_raw
 - /mapir/camera_info
+- /mapir/metadata (when metadata_enabled=true)
 
 ---
 
@@ -71,6 +73,28 @@ Common camera_node parameters:
 | `frame_id` | `str` | `mapir3_optical_frame` | REP-105 optical frame. |
 | `camera_info_url` | `str` | `''` | `file:///.../calib.yaml`. |
 | `qos_best_effort` | `bool` | `true` | BEST_EFFORT recommended. |
+| `uvc_controls_enabled` | `bool` | `false` | Lock camera UVC controls at startup using `v4l2-ctl`. |
+| `uvc_controls_device` | `str` | `''` | Device used for control lock; empty uses `video_device`. |
+| `auto_exposure_mode` | `int` | `-1` | `-1` keep current; commonly `1` means manual mode. |
+| `exposure_time_absolute` | `int` | `-1` | `-1` keep current; otherwise set UVC absolute exposure. |
+| `gain` | `int` | `-1` | `-1` keep current; otherwise set gain. |
+| `exposure_dynamic_framerate` | `int` | `-1` | `-1` keep current; `0` disables dynamic fps on many webcams. |
+| `white_balance_automatic` | `int` | `-1` | `-1` keep current; `0` manual, `1` auto (device-dependent). |
+| `white_balance_temperature` | `int` | `-1` | `-1` keep current; otherwise set WB temperature. |
+| `power_line_frequency` | `int` | `-1` | `-1` keep current; valid menu values are device-dependent. |
+| `metadata_enabled` | `bool` | `false` | Enable metadata topic publication. |
+| `metadata_device` | `str` | `/dev/video1` | UVC metadata node (MAPIR often `/dev/video5`). |
+| `metadata_topic` | `str` | `metadata` | Relative metadata topic name. |
+| `metadata_log_path` | `str` | `''` | Optional JSONL log file path. |
+| `metadata_log_flush_every_n` | `int` | `30` | Flush JSONL metadata log every N records. |
+| `vignette_enabled` | `bool` | `false` | Apply flat-field vignette correction before publishing. |
+| `vignette_flatfield_b_path` | `str` | `''` | Absolute path to B-channel flat-field image. |
+| `vignette_flatfield_g_path` | `str` | `''` | Absolute path to G-channel flat-field image. |
+| `vignette_flatfield_r_path` | `str` | `''` | Absolute path to R-channel flat-field image. |
+| `vignette_dark_current_b/g/r` | `int` | `0` | Dark-current offsets for each channel. |
+
+When `metadata_enabled=true`, metadata JSON also reports startup control lock status:
+`uvc_controls_device`, `uvc_controls_locked`, `uvc_controls_requested`, `uvc_controls_applied`.
 
 Common indices_node parameters:
 
@@ -217,10 +241,29 @@ Check negotiated formats:
 ```
 v4l2-ctl --device=/dev/video0 --list-formats-ext
 ```
+Lock camera controls (example manual profile):
+```
+v4l2-ctl -d /dev/video0 \
+  -c auto_exposure=1,exposure_dynamic_framerate=0,exposure_time_absolute=166,gain=64,white_balance_automatic=0,white_balance_temperature=4600
+```
+Read back controls:
+```
+v4l2-ctl -d /dev/video0 --get-ctrl=auto_exposure,exposure_dynamic_framerate,exposure_time_absolute,gain,white_balance_automatic,white_balance_temperature
+```
+
+Available resolutions/frame rates are camera-dependent.  
+Example output captured in this environment for `/dev/video0` (ASUS FHD webcam):
+
+- `MJPG`: 1920x1080@30/15, 1280x960@30/15, 1280x720@30/15, 640x480@30/15, 640x360@30/15, 352x288@30/15, 320x240@30/15, 176x144@30/15
+- `YUYV`: 1920x1080@5, 1280x720@10, 640x480@30/15, 640x360@30/15, 352x288@30/15, 320x240@30/15, 176x144@30/15, 160x120@30/15
+
+This probed camera does **not** advertise `2560x1440@30`. For MAPIR hardware, run the same command above and use the exact modes it reports.
+
 Verify publishing:
 ```
 ros2 topic info /mapir/image_raw -v  
 ros2 topic hz /mapir/image_raw
+ros2 topic echo --once /mapir/metadata
 ```
 RViz QoS (image not updating):
 - Set Image display QoS Reliability to `Best Effort`, or
@@ -267,6 +310,62 @@ cd Docker
 docker compose build
 docker compose up mapir_camera
 ```
+
+Calibration outputs via Docker compose:
+```
+cd Docker
+docker compose run --rm camera_calibration
+docker compose run --rm vignette_calibration
+docker compose run --rm reflectance_calibration
+```
+
+Outputs are written to `${MAPIR_OUTPUT_DIR:-../outputs}` with:
+- `camera_calibration/`
+  - `calibrationdata.tar.gz` (from `camera_calibration` when you click **SAVE**)
+  - `ost.yaml` and `ost.txt` (inside the tarball)
+  - optional `~/.ros/camera_info/*.yaml` updates (tool behavior-dependent)
+- `vignette_calibration/`
+  - `flat_b.tiff`, `flat_g.tiff`, `flat_r.tiff`
+  - `flat_b_preview.png`, `flat_g_preview.png`, `flat_r_preview.png`
+  - `flat_fields.npz`
+  - `sample_before_after.png`
+  - `vignette_report.json`
+  - `raw_frames/*.png`
+- `reflectance_calibration/`
+  - `calibration_target.png` (input expected)
+  - `input/*.png` (optional batch input expected)
+  - `reflectance_report.json`
+  - `panel_rois_overlay.png`
+  - `applied/*_reflectance_f32.tiff`
+  - `applied/*_reflectance_u16.tiff`
+
+Useful overrides (examples):
+```
+MAPIR_CAL_PATTERN_COLS=9 MAPIR_CAL_PATTERN_ROWS=6 MAPIR_CAL_SQUARE_M=0.024 \
+  docker compose run --rm camera_calibration
+
+MAPIR_VIG_FRAMES=120 MAPIR_VIG_BLUR_KERNEL=51 \
+  docker compose run --rm vignette_calibration
+
+docker compose run --rm reflectance_calibration
+```
+
+`camera_calibration` is interactive (GUI). Keep `mapir_camera` running, move the board
+through different orientations/distances, and click **CALIBRATE** then **SAVE**.
+
+To use generated vignette maps in the camera node:
+```
+ros2 run mapir_camera_ros2 camera_node --ros-args \
+  -p vignette_enabled:=true \
+  -p vignette_flatfield_b_path:=/abs/path/flat_b.tiff \
+  -p vignette_flatfield_g_path:=/abs/path/flat_g.tiff \
+  -p vignette_flatfield_r_path:=/abs/path/flat_r.tiff
+```
+
+Reflectance calibration uses empirical line (per-channel linear fit from known
+panel reflectance values vs measured panel DN). Configure panel ROIs and known
+reflectance values in:
+`config/reflectance_panels.example.json`
 
 ## License
 

@@ -48,6 +48,7 @@ mapir_camera_ros2/
 1. `camera_node` captures frames from `/dev/video*` and publishes:
    - `/<ns>/image_raw` (`sensor_msgs/Image`)
    - `/<ns>/camera_info` (`sensor_msgs/CameraInfo`)
+   - `/<ns>/metadata` (`std_msgs/String`, JSON; optional UVC metadata stream)
 2. Optional `indices_node` subscribes to `/<ns>/image_raw` and publishes:
    - `/<ns>/indices/<index>` (`sensor_msgs/Image`, `32FC1`)
 

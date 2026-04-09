@@ -15,6 +15,7 @@ RUN apt update \
         build-essential \
         python3-colcon-common-extensions \
         python3-numpy \
+        python3-tqdm \
         python3-opencv \
         libopencv-dev \
         gstreamer1.0-tools \
@@ -27,10 +28,12 @@ RUN apt update \
         ros-jazzy-image-transport \
         ros-jazzy-camera-info-manager-py \
         ros-jazzy-camera-info-manager \
+        ros-jazzy-camera-calibration \
         ros-jazzy-tf2-ros \
         ros-jazzy-image-tools \
         ros-jazzy-rviz2 \
         ros-jazzy-rviz-default-plugins \
+        ros-jazzy-robot-state-publisher \
         ros-jazzy-rmw-cyclonedds-cpp \
         libgl1 \
         libglx-mesa0 \

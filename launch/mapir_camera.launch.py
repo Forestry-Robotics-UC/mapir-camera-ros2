@@ -36,11 +36,6 @@ def generate_launch_description() -> LaunchDescription:
 
     default_camera_params_file = os.path.join(pkg_share, 'config', 'mapir_camera_params.yaml')
 
-    default_calib_file = os.path.expanduser('~/.ros/camera_info/mapir3_ocn.yaml')
-    default_calib_url = (
-        f'file://{default_calib_file}' if os.path.exists(default_calib_file) else ''
-    )
-
     default_indices_params_file = os.path.join(pkg_share, 'config', 'mapir_indices_params.yaml')
     default_indices_params = (
         default_indices_params_file if os.path.exists(default_indices_params_file) else ''
@@ -66,37 +61,37 @@ def generate_launch_description() -> LaunchDescription:
 
     video_device_arg = DeclareLaunchArgument(
         'video_device',
-        default_value='/dev/video0',
-        description='V4L2 device path or numeric index (e.g., /dev/video0 or 0).',
+        default_value='',
+        description='Optional override for V4L2 device path or numeric index.',
     )
 
     image_width_arg = DeclareLaunchArgument(
         'image_width',
-        default_value='1280',
-        description='Requested image width (pixels).',
+        default_value='',
+        description='Optional override for requested image width (pixels).',
     )
 
     image_height_arg = DeclareLaunchArgument(
         'image_height',
-        default_value='720',
-        description='Requested image height (pixels).',
+        default_value='',
+        description='Optional override for requested image height (pixels).',
     )
 
     framerate_arg = DeclareLaunchArgument(
         'framerate',
-        default_value='30.0',
-        description='Target frame rate (Hz).',
+        default_value='',
+        description='Optional override for target frame rate (Hz).',
     )
 
     pixel_format_arg = DeclareLaunchArgument(
         'pixel_format',
-        default_value='MJPG',
-        description='Pixel format: MJPG or H264 (device-dependent).',
+        default_value='',
+        description='Optional override for pixel format: MJPG or H264.',
     )
     use_gstreamer_arg = DeclareLaunchArgument(
         'use_gstreamer',
-        default_value='false',
-        description='Use GStreamer pipeline for capture (optional).',
+        default_value='',
+        description='Optional override to use GStreamer pipeline for capture.',
     )
     gstreamer_pipeline_arg = DeclareLaunchArgument(
         'gstreamer_pipeline',
@@ -106,35 +101,35 @@ def generate_launch_description() -> LaunchDescription:
 
     frame_id_arg = DeclareLaunchArgument(
         'frame_id',
-        default_value='mapir3_optical_frame',
-        description='Frame ID for published Image and CameraInfo.',
+        default_value='',
+        description='Optional override for frame_id for Image and CameraInfo.',
     )
 
     camera_name_arg = DeclareLaunchArgument(
         'camera_name',
-        default_value='mapir3_ocn',
-        description='Camera name for camera_info_manager.',
+        default_value='',
+        description='Optional override for camera name for camera_info_manager.',
     )
 
     camera_info_url_arg = DeclareLaunchArgument(
         'camera_info_url',
-        default_value=default_calib_url,
+        default_value='',
         description=(
-            'Camera calibration URL (e.g., file:///abs/path/to/calib.yaml). '
-            'If empty, no calibration is loaded.'
+            'Optional override for camera calibration URL (e.g., file:///abs/path/to/calib.yaml). '
+            'If empty, value comes from params file or node default.'
         ),
     )
 
     qos_best_effort_arg = DeclareLaunchArgument(
         'qos_best_effort',
-        default_value='true',
-        description='Use BEST_EFFORT QoS for camera streams (recommended).',
+        default_value='',
+        description='Optional override for QoS reliability (BEST_EFFORT when true).',
     )
 
     qos_depth_arg = DeclareLaunchArgument(
         'qos_depth',
-        default_value='5',
-        description='Publisher queue depth.',
+        default_value='',
+        description='Optional override for publisher queue depth.',
     )
 
     debug_arg = DeclareLaunchArgument(
@@ -145,8 +140,8 @@ def generate_launch_description() -> LaunchDescription:
 
     debug_period_s_arg = DeclareLaunchArgument(
         'debug_period_s',
-        default_value='1.0',
-        description='Throttle period for debug logs (seconds).',
+        default_value='',
+        description='Optional override for debug throttle period (seconds).',
     )
 
     publish_static_tf_arg = DeclareLaunchArgument(
@@ -249,70 +244,23 @@ def generate_launch_description() -> LaunchDescription:
         ],
     )
 
-    camera_params = [
-        LaunchConfiguration('camera_params_file'),
-        {
-            'video_device': ParameterValue(
-                LaunchConfiguration('video_device'),
-                value_type=str,
-            ),
-            'image_width': ParameterValue(
-                LaunchConfiguration('image_width'),
-                value_type=int,
-            ),
-            'image_height': ParameterValue(
-                LaunchConfiguration('image_height'),
-                value_type=int,
-            ),
-            'framerate': ParameterValue(
-                LaunchConfiguration('framerate'),
-                value_type=float,
-            ),
-            'pixel_format': ParameterValue(
-                LaunchConfiguration('pixel_format'),
-                value_type=str,
-            ),
-            'use_gstreamer': ParameterValue(
-                LaunchConfiguration('use_gstreamer'),
-                value_type=bool,
-            ),
-            'gstreamer_pipeline': ParameterValue(
-                LaunchConfiguration('gstreamer_pipeline'),
-                value_type=str,
-            ),
-            'frame_id': ParameterValue(
-                LaunchConfiguration('frame_id'),
-                value_type=str,
-            ),
-            'camera_name': ParameterValue(
-                LaunchConfiguration('camera_name'),
-                value_type=str,
-            ),
-            'camera_info_url': ParameterValue(
-                LaunchConfiguration('camera_info_url'),
-                value_type=str,
-            ),
-            'qos_best_effort': ParameterValue(
-                LaunchConfiguration('qos_best_effort'),
-                value_type=bool,
-            ),
-            'qos_depth': ParameterValue(
-                LaunchConfiguration('qos_depth'),
-                value_type=int,
-            ),
-            'debug': ParameterValue(
-                LaunchConfiguration('debug'),
-                value_type=bool,
-            ),
-            'debug_period_s': ParameterValue(
-                LaunchConfiguration('debug_period_s'),
-                value_type=float,
-            ),
-        },
-    ]
-
     def _as_bool(value: str) -> bool:
         return value.strip().lower() in ('1', 'true', 'yes', 'on')
+
+    def _add_if_set(
+        context,
+        *,
+        launch_arg: str,
+        param_name: str,
+        caster,
+        out_params: dict,
+        out_sources: dict,
+    ) -> None:
+        raw = LaunchConfiguration(launch_arg).perform(context).strip()
+        if raw == '':
+            return
+        out_params[param_name] = caster(raw)
+        out_sources[param_name] = f'launch:{launch_arg}'
 
     def _build_camera_node(context, *args, **kwargs):
         impl = LaunchConfiguration('camera_impl').perform(context).strip().lower()
@@ -322,7 +270,134 @@ def generate_launch_description() -> LaunchDescription:
         else:
             package = 'mapir_camera_ros2'
             executable = 'camera_node'
+
+        camera_params_file = LaunchConfiguration('camera_params_file').perform(context).strip()
+        if not camera_params_file:
+            camera_params_file = default_camera_params_file
+
+        launch_overrides = {
+            'debug': _as_bool(LaunchConfiguration('debug').perform(context)),
+        }
+        launch_sources = {'debug': 'launch:debug'}
+
+        _add_if_set(
+            context,
+            launch_arg='video_device',
+            param_name='video_device',
+            caster=str,
+            out_params=launch_overrides,
+            out_sources=launch_sources,
+        )
+        _add_if_set(
+            context,
+            launch_arg='image_width',
+            param_name='image_width',
+            caster=int,
+            out_params=launch_overrides,
+            out_sources=launch_sources,
+        )
+        _add_if_set(
+            context,
+            launch_arg='image_height',
+            param_name='image_height',
+            caster=int,
+            out_params=launch_overrides,
+            out_sources=launch_sources,
+        )
+        _add_if_set(
+            context,
+            launch_arg='framerate',
+            param_name='framerate',
+            caster=float,
+            out_params=launch_overrides,
+            out_sources=launch_sources,
+        )
+        _add_if_set(
+            context,
+            launch_arg='pixel_format',
+            param_name='pixel_format',
+            caster=str,
+            out_params=launch_overrides,
+            out_sources=launch_sources,
+        )
+        _add_if_set(
+            context,
+            launch_arg='use_gstreamer',
+            param_name='use_gstreamer',
+            caster=_as_bool,
+            out_params=launch_overrides,
+            out_sources=launch_sources,
+        )
+        _add_if_set(
+            context,
+            launch_arg='gstreamer_pipeline',
+            param_name='gstreamer_pipeline',
+            caster=str,
+            out_params=launch_overrides,
+            out_sources=launch_sources,
+        )
+        _add_if_set(
+            context,
+            launch_arg='frame_id',
+            param_name='frame_id',
+            caster=str,
+            out_params=launch_overrides,
+            out_sources=launch_sources,
+        )
+        _add_if_set(
+            context,
+            launch_arg='camera_name',
+            param_name='camera_name',
+            caster=str,
+            out_params=launch_overrides,
+            out_sources=launch_sources,
+        )
+        _add_if_set(
+            context,
+            launch_arg='camera_info_url',
+            param_name='camera_info_url',
+            caster=str,
+            out_params=launch_overrides,
+            out_sources=launch_sources,
+        )
+        _add_if_set(
+            context,
+            launch_arg='qos_best_effort',
+            param_name='qos_best_effort',
+            caster=_as_bool,
+            out_params=launch_overrides,
+            out_sources=launch_sources,
+        )
+        _add_if_set(
+            context,
+            launch_arg='qos_depth',
+            param_name='qos_depth',
+            caster=int,
+            out_params=launch_overrides,
+            out_sources=launch_sources,
+        )
+        _add_if_set(
+            context,
+            launch_arg='debug_period_s',
+            param_name='debug_period_s',
+            caster=float,
+            out_params=launch_overrides,
+            out_sources=launch_sources,
+        )
+
+        source_summary = ', '.join(
+            f'{name}={source}' for name, source in sorted(launch_sources.items())
+        )
+        source_message = (
+            '[mapir_camera.launch] parameter precedence: '
+            'launch overrides > params file > node defaults. '
+            f'params_file={camera_params_file}. '
+            f'explicit_overrides={source_summary}'
+        )
+
+        camera_params = [camera_params_file, launch_overrides]
         return [
+            LogInfo(msg=source_message, condition=IfCondition(LaunchConfiguration('debug'))),
             Node(
                 package=package,
                 executable=executable,
@@ -397,7 +472,12 @@ def generate_launch_description() -> LaunchDescription:
 
         if not indices_list:
             return [
-                LogInfo(msg='indices_per_node enabled but no indices list found; no indices nodes launched.')
+                LogInfo(
+                    msg=(
+                        'indices_per_node enabled but no indices list found; '
+                        'no indices nodes launched.'
+                    )
+                )
             ]
 
         nodes = []

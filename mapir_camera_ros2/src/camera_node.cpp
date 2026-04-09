@@ -1,9 +1,15 @@
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <map>
 #include <memory>
+#include <sstream>
 #include <string>
+#include <vector>
 
 #include "camera_info_manager/camera_info_manager.hpp"
 #include "cv_bridge/cv_bridge.hpp"
@@ -52,6 +58,15 @@ class MapirCameraCppNode : public rclcpp::Node {
     declare_parameter("gstreamer_pipeline", "");
     declare_parameter("qos_depth", 5);
     declare_parameter("qos_best_effort", true);
+    declare_parameter("uvc_controls_enabled", false);
+    declare_parameter("uvc_controls_device", "");
+    declare_parameter("auto_exposure_mode", -1);
+    declare_parameter("exposure_time_absolute", -1);
+    declare_parameter("gain", -1);
+    declare_parameter("exposure_dynamic_framerate", -1);
+    declare_parameter("white_balance_automatic", -1);
+    declare_parameter("white_balance_temperature", -1);
+    declare_parameter("power_line_frequency", -1);
 
     debug_ = get_parameter("debug").as_bool();
     debug_period_s_ = get_parameter("debug_period_s").as_double();
@@ -69,6 +84,17 @@ class MapirCameraCppNode : public rclcpp::Node {
 
     qos_depth_ = std::max(1, static_cast<int>(get_parameter("qos_depth").as_int()));
     qos_best_effort_ = get_parameter("qos_best_effort").as_bool();
+    uvc_controls_enabled_ = get_parameter("uvc_controls_enabled").as_bool();
+    uvc_controls_device_ = get_parameter("uvc_controls_device").as_string();
+    auto_exposure_mode_ = static_cast<int>(get_parameter("auto_exposure_mode").as_int());
+    exposure_time_absolute_ = static_cast<int>(get_parameter("exposure_time_absolute").as_int());
+    gain_ = static_cast<int>(get_parameter("gain").as_int());
+    exposure_dynamic_framerate_ =
+      static_cast<int>(get_parameter("exposure_dynamic_framerate").as_int());
+    white_balance_automatic_ = static_cast<int>(get_parameter("white_balance_automatic").as_int());
+    white_balance_temperature_ =
+      static_cast<int>(get_parameter("white_balance_temperature").as_int());
+    power_line_frequency_ = static_cast<int>(get_parameter("power_line_frequency").as_int());
 
     if (req_fps_ <= 0.0) {
       RCLCPP_WARN(get_logger(), "Invalid framerate; defaulting to 30 Hz");
@@ -81,6 +107,20 @@ class MapirCameraCppNode : public rclcpp::Node {
                   frame_id_.c_str(), camera_name_.c_str());
       RCLCPP_INFO(get_logger(), "QoS: reliability=%s depth=%d",
                   qos_best_effort_ ? "BEST_EFFORT" : "RELIABLE", qos_depth_);
+      RCLCPP_INFO(
+        get_logger(),
+        "UVC controls: enabled=%s device=%s auto_exposure_mode=%d exposure_time_absolute=%d "
+        "gain=%d exposure_dynamic_framerate=%d white_balance_automatic=%d "
+        "white_balance_temperature=%d power_line_frequency=%d",
+        uvc_controls_enabled_ ? "true" : "false",
+        uvc_controls_device_.c_str(),
+        auto_exposure_mode_,
+        exposure_time_absolute_,
+        gain_,
+        exposure_dynamic_framerate_,
+        white_balance_automatic_,
+        white_balance_temperature_,
+        power_line_frequency_);
     }
     rclcpp::QoS qos_profile(qos_depth_);
     qos_profile.reliability(qos_best_effort_ ? RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT
@@ -100,6 +140,7 @@ class MapirCameraCppNode : public rclcpp::Node {
       RCLCPP_WARN(get_logger(), "No valid calibration loaded; using default CameraInfo.");
     }
 
+    apply_uvc_controls_if_requested();
     open_camera();
 
     last_stats_t_ = std::chrono::steady_clock::now();
@@ -122,6 +163,107 @@ class MapirCameraCppNode : public rclcpp::Node {
   }
 
  private:
+  std::string run_command_capture(const std::string &cmd, int *exit_code) {
+    std::array<char, 256> buffer{};
+    std::string output;
+    FILE *pipe = popen(cmd.c_str(), "r");
+    if (pipe == nullptr) {
+      if (exit_code != nullptr) {
+        *exit_code = -1;
+      }
+      return output;
+    }
+    while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe) != nullptr) {
+      output += buffer.data();
+    }
+    int rc = pclose(pipe);
+    if (exit_code != nullptr) {
+      *exit_code = rc;
+    }
+    return output;
+  }
+
+  void apply_uvc_controls_if_requested() {
+    if (!uvc_controls_enabled_) {
+      return;
+    }
+
+    std::string controls_device = uvc_controls_device_.empty() ? video_device_ : uvc_controls_device_;
+    if (controls_device.empty()) {
+      RCLCPP_WARN(get_logger(), "UVC controls enabled but no controls device provided.");
+      return;
+    }
+
+    if (std::system("command -v v4l2-ctl >/dev/null 2>&1") != 0) {
+      RCLCPP_WARN(get_logger(), "UVC controls enabled but v4l2-ctl is not available.");
+      return;
+    }
+
+    std::vector<std::pair<std::string, int>> controls;
+    if (auto_exposure_mode_ >= 0) {
+      controls.emplace_back("auto_exposure", auto_exposure_mode_);
+    }
+    if (exposure_time_absolute_ >= 0) {
+      controls.emplace_back("exposure_time_absolute", exposure_time_absolute_);
+    }
+    if (gain_ >= 0) {
+      controls.emplace_back("gain", gain_);
+    }
+    if (exposure_dynamic_framerate_ >= 0) {
+      controls.emplace_back("exposure_dynamic_framerate", exposure_dynamic_framerate_);
+    }
+    if (white_balance_automatic_ >= 0) {
+      controls.emplace_back("white_balance_automatic", white_balance_automatic_);
+    }
+    if (white_balance_temperature_ >= 0) {
+      controls.emplace_back("white_balance_temperature", white_balance_temperature_);
+    }
+    if (power_line_frequency_ >= 0) {
+      controls.emplace_back("power_line_frequency", power_line_frequency_);
+    }
+
+    if (controls.empty()) {
+      RCLCPP_WARN(get_logger(), "UVC controls enabled but all controls are set to -1 (unchanged).");
+      return;
+    }
+
+    std::ostringstream set_arg;
+    std::ostringstream get_arg;
+    for (size_t i = 0; i < controls.size(); ++i) {
+      if (i > 0) {
+        set_arg << ",";
+        get_arg << ",";
+      }
+      set_arg << controls[i].first << "=" << controls[i].second;
+      get_arg << controls[i].first;
+    }
+
+    const std::string set_cmd =
+      "v4l2-ctl -d " + controls_device + " -c " + set_arg.str() + " >/dev/null 2>&1";
+    if (std::system(set_cmd.c_str()) != 0) {
+      RCLCPP_WARN(get_logger(), "Failed to set UVC controls on %s.", controls_device.c_str());
+      return;
+    }
+
+    int get_exit_code = 0;
+    const std::string get_cmd =
+      "v4l2-ctl -d " + controls_device + " --get-ctrl=" + get_arg.str() + " 2>/dev/null";
+    const std::string readback = run_command_capture(get_cmd, &get_exit_code);
+    if (get_exit_code != 0) {
+      RCLCPP_WARN(get_logger(), "Failed to read back UVC controls on %s.", controls_device.c_str());
+      return;
+    }
+
+    uvc_controls_locked_ = true;
+    uvc_controls_device_applied_ = controls_device;
+    uvc_controls_readback_ = readback;
+    RCLCPP_INFO(
+      get_logger(),
+      "UVC controls locked on %s:\n%s",
+      controls_device.c_str(),
+      uvc_controls_readback_.c_str());
+  }
+
   void open_camera() {
     std::string fmt = pixel_format_;
     for (auto &c : fmt) {
@@ -254,6 +396,18 @@ class MapirCameraCppNode : public rclcpp::Node {
   std::string pixel_format_;
   bool use_gstreamer_ = false;
   std::string gstreamer_pipeline_;
+  bool uvc_controls_enabled_ = false;
+  std::string uvc_controls_device_;
+  int auto_exposure_mode_ = -1;
+  int exposure_time_absolute_ = -1;
+  int gain_ = -1;
+  int exposure_dynamic_framerate_ = -1;
+  int white_balance_automatic_ = -1;
+  int white_balance_temperature_ = -1;
+  int power_line_frequency_ = -1;
+  bool uvc_controls_locked_ = false;
+  std::string uvc_controls_device_applied_;
+  std::string uvc_controls_readback_;
 
   int qos_depth_ = 5;
   bool qos_best_effort_ = true;

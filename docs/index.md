@@ -14,9 +14,10 @@ outputs.
 :maxdepth: 2
 
 manual/quickstart
+manual/calibration
 manual/architecture
 manual/ros_contract
-manual/parameters
+manual/params
 manual/indices
 manual/failure_modes
 manual/core_api

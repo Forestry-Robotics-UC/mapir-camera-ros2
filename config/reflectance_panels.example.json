@@ -1,0 +1,20 @@
+{
+  "description": "Example panel ROIs and known reflectance values (B,G,R) in [0..1].",
+  "panels": [
+    {
+      "name": "panel_dark",
+      "roi": [100, 100, 80, 80],
+      "reflectance_bgr": [0.03, 0.03, 0.03]
+    },
+    {
+      "name": "panel_mid",
+      "roi": [220, 100, 80, 80],
+      "reflectance_bgr": [0.24, 0.24, 0.24]
+    },
+    {
+      "name": "panel_light",
+      "roi": [340, 100, 80, 80],
+      "reflectance_bgr": [0.56, 0.56, 0.56]
+    }
+  ]
+}

@@ -47,6 +47,7 @@ def apply_vignette_correction(
     flat_fields_bgr: Sequence[np.ndarray],
     *,
     dark_current: Iterable[int] | None = None,
+    eps: float = 1e-6,
 ) -> np.ndarray:
     """
     Apply per-channel flat-field (vignette) correction to a BGR image.
@@ -78,9 +79,13 @@ def apply_vignette_correction(
     g = g.astype(np.float32) - float(dc_g)
     r = r.astype(np.float32) - float(dc_r)
 
-    b = np.divide(b, vig_b.astype(np.float32))
-    g = np.divide(g, vig_g.astype(np.float32))
-    r = np.divide(r, vig_r.astype(np.float32))
+    vig_b_safe = np.maximum(vig_b.astype(np.float32), np.float32(eps))
+    vig_g_safe = np.maximum(vig_g.astype(np.float32), np.float32(eps))
+    vig_r_safe = np.maximum(vig_r.astype(np.float32), np.float32(eps))
+
+    b = np.divide(b, vig_b_safe)
+    g = np.divide(g, vig_g_safe)
+    r = np.divide(r, vig_r_safe)
 
     b = np.clip(b, 0.0, max_value)
     g = np.clip(g, 0.0, max_value)
