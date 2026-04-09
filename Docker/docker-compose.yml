@@ -161,8 +161,6 @@ services:
     volumes:
       - /home/forestsphere/work_utils/mapir-camera-ros2:/workspaces/ros2_ws/src/mapir_camera:ro
       - ${MAPIR_OUTPUT_DIR:-../outputs}:/outputs
-    devices:
-      - ${MAPIR_VIDEO_DEVICE:-/dev/video0}:${MAPIR_VIDEO_DEVICE:-/dev/video0}
     stdin_open: true
     tty: true
     command:
@@ -176,5 +174,9 @@ services:
       - /outputs/reflectance_calibration/input
       - --glob
       - "*.png"
+      - --panel-min-frac
+      - ${MAPIR_REF_PANEL_MIN_FRAC:-0.02}
+      - --panel-max-frac
+      - ${MAPIR_REF_PANEL_MAX_FRAC:-0.98}
       - --out-dir
       - /outputs/reflectance_calibration

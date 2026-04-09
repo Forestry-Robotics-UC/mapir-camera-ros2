@@ -30,6 +30,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--dark-current-b', type=int, default=0)
     parser.add_argument('--dark-current-g', type=int, default=0)
     parser.add_argument('--dark-current-r', type=int, default=0)
+    parser.add_argument(
+        '--allow-8bit',
+        action='store_true',
+        help='Allow uint8 inputs (not ideal for radiometric workflows).',
+    )
+    parser.add_argument(
+        '--panel-min-frac',
+        type=float,
+        default=0.02,
+        help='Reject panel ROIs whose mean DN is below this fraction of full-scale.',
+    )
+    parser.add_argument(
+        '--panel-max-frac',
+        type=float,
+        default=0.98,
+        help='Reject panel ROIs whose mean DN is above this fraction of full-scale.',
+    )
     return parser.parse_args()
 
 
@@ -40,6 +57,14 @@ def _read_image(path: Path) -> np.ndarray:
     if image.ndim != 3 or image.shape[2] != 3:
         raise RuntimeError(f'Expected 3-channel image, got shape={image.shape} for {path}')
     return image
+
+
+def _dtype_max(image: np.ndarray) -> float:
+    if image.dtype == np.uint16:
+        return 65535.0
+    if image.dtype == np.uint8:
+        return 255.0
+    raise RuntimeError(f'Unsupported image dtype for reflectance calibration: {image.dtype}')
 
 
 def _load_panel_config(path: Path) -> list[dict]:
@@ -116,6 +141,12 @@ def main() -> int:
 
     panels = _load_panel_config(panel_cfg_path)
     calibration_image = _read_image(calibration_image_path)
+    if calibration_image.dtype == np.uint8 and not args.allow_8bit:
+        raise RuntimeError(
+            'calibration_image is uint8; this is not recommended for reflectance calibration. '
+            'Use 16-bit images or pass --allow-8bit explicitly.'
+        )
+    cal_dtype_max = _dtype_max(calibration_image)
 
     flat_fields = None
     if args.flat_b and args.flat_g and args.flat_r:
@@ -131,12 +162,29 @@ def main() -> int:
     panel_means: list[np.ndarray] = []
     panel_refs: list[np.ndarray] = []
     panel_rows: list[dict] = []
+    rejected_panels: list[dict] = []
+    min_dn = float(args.panel_min_frac) * cal_dtype_max
+    max_dn = float(args.panel_max_frac) * cal_dtype_max
+    if min_dn >= max_dn:
+        raise RuntimeError('Invalid panel DN thresholds: panel-min-frac must be < panel-max-frac')
+
     for panel in panels:
         roi = panel['roi']
         refl = panel['reflectance_bgr']
         if len(refl) != 3:
             raise RuntimeError(f'Panel reflectance_bgr must have 3 values: {panel}')
         mean_bgr = _roi_mean_bgr(calibration_image, roi)
+        within_range = bool(np.all(mean_bgr >= min_dn) and np.all(mean_bgr <= max_dn))
+        if not within_range:
+            rejected_panels.append(
+                {
+                    'name': panel.get('name', ''),
+                    'roi': [int(v) for v in roi],
+                    'mean_bgr': [float(v) for v in mean_bgr],
+                    'reason': f'mean DN outside [{min_dn:.2f}, {max_dn:.2f}]',
+                }
+            )
+            continue
         ref_bgr = np.array(refl, dtype=np.float64)
         panel_means.append(mean_bgr)
         panel_refs.append(ref_bgr)
@@ -147,6 +195,11 @@ def main() -> int:
                 'mean_bgr': [float(v) for v in mean_bgr],
                 'reflectance_bgr': [float(v) for v in ref_bgr],
             }
+        )
+
+    if len(panel_means) < 2:
+        raise RuntimeError(
+            f'Need at least 2 valid panels after DN quality filtering; got {len(panel_means)}'
         )
 
     means = np.array(panel_means, dtype=np.float64)
@@ -167,6 +220,11 @@ def main() -> int:
     pbar = tqdm(targets, desc='reflectance apply', unit='img')
     for src in pbar:
         image = _read_image(src)
+        if image.dtype == np.uint8 and not args.allow_8bit:
+            raise RuntimeError(
+                f'Input image {src} is uint8; use 16-bit images or pass --allow-8bit.'
+            )
+        _dtype_max(image)
         if flat_fields is not None:
             image = apply_vignette_correction(
                 image,
@@ -188,8 +246,16 @@ def main() -> int:
             'slope_bgr': [float(v) for v in slopes],
             'intercept_bgr': [float(v) for v in intercepts],
         },
+        'quality_thresholds': {
+            'panel_min_frac': float(args.panel_min_frac),
+            'panel_max_frac': float(args.panel_max_frac),
+            'panel_dn_min': float(min_dn),
+            'panel_dn_max': float(max_dn),
+        },
+        'rejected_panels': rejected_panels,
         'applied_count': len(targets),
         'vignette_pre_applied': bool(flat_fields is not None),
+        'allow_8bit': bool(args.allow_8bit),
     }
     (out_dir / 'reflectance_report.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
     print(f'Reflectance calibration complete. Outputs written to: {out_dir}')

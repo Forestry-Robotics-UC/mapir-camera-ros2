@@ -367,6 +367,23 @@ panel reflectance values vs measured panel DN). Configure panel ROIs and known
 reflectance values in:
 `config/reflectance_panels.example.json`
 
+Reflectance tool quality controls:
+- rejects panel ROIs outside configurable DN fraction bounds
+- defaults: `MAPIR_REF_PANEL_MIN_FRAC=0.02`, `MAPIR_REF_PANEL_MAX_FRAC=0.98`
+- expects 16-bit radiometric input (8-bit can be enabled explicitly with `--allow-8bit`)
+
+Persistent `/dev/mapir` symlink (udev):
+1. Copy the rule file:
+   - `sudo cp config/udev/99-mapir-camera.rules /etc/udev/rules.d/`
+2. Reload/apply:
+   - `sudo udevadm control --reload-rules`
+   - `sudo udevadm trigger`
+3. Replug camera and verify:
+   - `ls -l /dev/mapir /dev/mapir_meta`
+
+Rule file:
+- `config/udev/99-mapir-camera.rules`
+
 ## License
 
 GNU General Public License v3.0 (GPL-3.0-only)

@@ -61,6 +61,7 @@ Prepare:
 - known panel reflectance values (from panel datasheet), mapped to ROIs in
   `config/reflectance_panels.example.json`
 - optional batch input images in `outputs/reflectance_calibration/input/*.png`
+- prefer 16-bit input images for reflectance calibration (8-bit is non-ideal)
 
 Run:
 
@@ -71,6 +72,8 @@ docker compose run --rm reflectance_calibration
 
 Method:
 - For each panel ROI and each channel, compute mean DN.
+- Reject panel ROIs with mean DN outside configured quality bounds
+  (`panel_min_frac`, `panel_max_frac`) to avoid near-black/saturated fits.
 - Fit per-channel linear model:
   - `reflectance = slope * DN + intercept`
 - Apply model to each image and clamp to `[0, 1]`.
@@ -80,6 +83,7 @@ Outputs:
 - `panel_rois_overlay.png`
 - `applied/*_reflectance_f32.tiff`
 - `applied/*_reflectance_u16.tiff`
+- `reflectance_report.json` includes rejected panels and DN threshold settings.
 
 ## Best-practice capture notes
 
@@ -89,6 +93,8 @@ Outputs:
   and the images you calibrate.
 - Re-run reflectance calibration when illumination conditions change
   significantly.
+- Avoid using gamma-encoded 8-bit exports for scientific calibration whenever
+  possible; calibrate from highest-fidelity radiometric source.
 
 ## References
 
