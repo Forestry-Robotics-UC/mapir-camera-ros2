@@ -1,4 +1,4 @@
-# MAPIR Survey3 ROS 2 Camera Driver (Jazzy)
+# <img src="docs/_static/fruc_logo.png" width="150" alt="FRUC logo"/>  MAPIR Survey3 ROS Camera Driver
 
 ROS 2 Jazzy camera driver for MAPIR Survey3 cameras (including OCN variants),
 implemented in Python (ament-python) using OpenCV + V4L2.
@@ -8,12 +8,27 @@ pipelines and vegetation analysis workflows.
 
 ---
 
+## Documentation
+
+- Manual (Sphinx/MyST): `docs/index.md`
+- Parameters reference: `docs/manual/parameters.md`
+
+Build docs (GitHub Pages):
+```
+pip install -r docs/requirements.txt
+sphinx-build -b html docs docs/_build/html
+touch docs/_build/html/.nojekyll
+```
+
+---
+
 ## Features
 
 - ROS 2 Jazzy compatible
 - Publishes:
   - /<ns>/image_raw (sensor_msgs/Image)
   - /<ns>/camera_info (sensor_msgs/CameraInfo)
+  - /<ns>/metadata (std_msgs/String JSON, optional)
 - Supports MJPG and H264 pixel formats (device-dependent)
 - Uses V4L2 backend explicitly (no GStreamer ambiguity)
 - Supports up to 60 Hz
@@ -31,46 +46,122 @@ All topics are published relative to the node namespace (recommended: /mapir).
 
 - /mapir/image_raw
 - /mapir/camera_info
+- /mapir/metadata (when metadata_enabled=true)
 
 ---
 
 ## Parameters
 
-debug (bool, default false)  
-Enable verbose debug logging.
+- Full parameter reference: `docs/manual/parameters.md`
 
-debug_period_s (double, default 1.0)  
-Throttle period for debug logs.
+Preset YAML files (recommended):
+- `config/mapir_camera_params.yaml`
+- `config/mapir_indices_params.yaml`
+- `config/mapir_indices_ocn_params.yaml`
 
-video_device (string, default /dev/video0)  
-Camera device path or index.
+Common camera_node parameters:
 
-image_width (int, default 1920)  
-Requested image width.
+| Param | Type | Default | Notes |
+|---|---|---|---|
+| `video_device` | `str` | `/dev/video0` | V4L2 device path or numeric index. |
+| `image_width` | `int` | `1280` | Requested width. |
+| `image_height` | `int` | `720` | Requested height. |
+| `framerate` | `float` | `30.0` | Requested FPS. |
+| `pixel_format` | `str` | `MJPG` | `MJPG` or `H264` (device-dependent). |
+| `use_gstreamer` | `bool` | `false` | Use GStreamer pipeline for capture. |
+| `gstreamer_pipeline` | `str` | `''` | Custom GStreamer pipeline string. |
+| `frame_id` | `str` | `mapir3_optical_frame` | REP-105 optical frame. |
+| `camera_info_url` | `str` | `package://mapir_camera_ros2/config/mapir3_ocn_1920x1440.yaml` | `package://...` or `file:///.../calib.yaml`. |
+| `qos_best_effort` | `bool` | `true` | BEST_EFFORT recommended. |
+| `uvc_controls_enabled` | `bool` | `false` | Lock camera UVC controls at startup using `v4l2-ctl`. |
+| `uvc_controls_device` | `str` | `''` | Device used for control lock; empty uses `video_device`. |
+| `auto_exposure_mode` | `int` | `-1` | `-1` keep current; commonly `1` means manual mode. |
+| `exposure_time_absolute` | `int` | `-1` | `-1` keep current; otherwise set UVC absolute exposure. |
+| `gain` | `int` | `-1` | `-1` keep current; otherwise set gain. |
+| `exposure_dynamic_framerate` | `int` | `-1` | `-1` keep current; `0` disables dynamic fps on many webcams. |
+| `white_balance_automatic` | `int` | `-1` | `-1` keep current; `0` manual, `1` auto (device-dependent). |
+| `white_balance_temperature` | `int` | `-1` | `-1` keep current; otherwise set WB temperature. |
+| `power_line_frequency` | `int` | `-1` | `-1` keep current; valid menu values are device-dependent. |
+| `metadata_enabled` | `bool` | `false` | Enable metadata topic publication. |
+| `metadata_device` | `str` | `/dev/video1` | UVC metadata node (MAPIR often `/dev/video5`). |
+| `metadata_topic` | `str` | `metadata` | Relative metadata topic name. |
+| `metadata_log_path` | `str` | `''` | Optional JSONL log file path. |
+| `metadata_log_flush_every_n` | `int` | `30` | Flush JSONL metadata log every N records. |
+| `vignette_enabled` | `bool` | `false` | Apply flat-field vignette correction before publishing. |
+| `vignette_flatfield_b_path` | `str` | `''` | Absolute path to B-channel flat-field image. |
+| `vignette_flatfield_g_path` | `str` | `''` | Absolute path to G-channel flat-field image. |
+| `vignette_flatfield_r_path` | `str` | `''` | Absolute path to R-channel flat-field image. |
+| `vignette_dark_current_b/g/r` | `int` | `0` | Dark-current offsets for each channel. |
 
-image_height (int, default 1440)  
-Requested image height.
+When `metadata_enabled=true`, metadata JSON also reports startup control lock status:
+`uvc_controls_device`, `uvc_controls_locked`, `uvc_controls_requested`, `uvc_controls_applied`.
 
-framerate (double, default 30.0)  
-Target frame rate.
+Common indices_node parameters:
 
-pixel_format (string, default MJPG)  
-MJPG or H264.
+| Param | Type | Default | Notes |
+|---|---|---|---|
+| `indices` | `list[str]` | `['ndvi', 'osavi']` | Add `_1`/`_2` to prefer NIR1/NIR2. |
+| `filter_set` | `str` | `''` | `RGN`, `NGB`, `OCN`, `RGB`. |
+| `normalize_input` | `bool` | `true` | Normalize integer images to `[0,1]`. |
+| `downsample_factor` | `int` | `1` | Stride downsample for CPU savings. |
+| `publish_every_n` | `int` | `1` | Publish every Nth frame. |
+| `publish_color` | `bool` | `false` | Publish colorized outputs. |
+| `colormap` | `str` | `viridis` | `viridis`, `jet`, `gray`, `custom`, ... |
+| `*_channel` | `int` | `-1` | Explicit band mapping overrides. |
 
-frame_id (string, default mapir3_optical_frame)  
-Optical frame ID.
+---
 
-camera_name (string, default mapir3)  
-Camera name for calibration.
+## Multispectral Indices
 
-camera_info_url (string, default empty)  
-file:///.../calibration.yaml
+This package includes an optional processing node, `indices_node`, that computes common
+vegetation / spectral indices (e.g., NDVI, GNDVI) from the incoming 3-channel image.
+For real-time performance, keep the indices list to 1-2 entries at a time.
 
-qos_best_effort (bool, default true)  
-BEST_EFFORT vs RELIABLE QoS.
+Published topics (relative to the namespace):
 
-qos_depth (int, default 5)  
-Publisher queue depth.
+- /<ns>/indices/<index_name> (sensor_msgs/Image, encoding 32FC1)
+
+Enable via launch (uses the package default params file unless overridden):
+```
+ros2 launch mapir_camera_ros2 mapir_camera.launch.py namespace:=mapir enable_indices:=true
+```
+
+Adjust indices + band mapping via `config/mapir_indices_params.yaml` (installed with the package).
+The `filter_set` preset is best-effort and can be overridden with explicit `*_channel` parameters.
+
+Core computations live in `mapir_camera_core`.
+
+For Survey3W OCN streams, set `filter_set: OCN` (or use `config/mapir_indices_ocn_params.yaml`).
+The preset aliases `cyan→blue` and `orange→red` for index computation (no green/rededge band).
+
+Index summary (best use + required bands):
+
+| Index | Best use | Bands |
+|---|---|---|
+| NDVI | General vegetation vigor | NIR + Red |
+| NDRE | Early stress / chlorophyll | NIR + RedEdge |
+| EVI | High-LAI vegetation, less saturation | NIR + Red + Blue |
+| LAI | LAI proxy (derived from EVI) | NIR + Red + Blue |
+| SAVI | Sparse vegetation, soil background | NIR + Red |
+| OSAVI | Soil-adjusted, fixed L | NIR + Red |
+| MSAVI2 | Soil noise reduction | NIR + Red |
+| RDVI | Reduced soil sensitivity | NIR + Red |
+| TDVI | Reduced saturation in mixed scenes | NIR + Red |
+| WDRVI | High NDVI range sensitivity | NIR + Red |
+| NLI | Non-linear canopy response | NIR + Red |
+| MNLI | NLI with soil adjustment | NIR + Red |
+| GEMI | Atmospheric effect reduction | NIR + Red |
+| FCI1 | Forest cover (red-edge) | Red + RedEdge |
+| FCI2 | Forest cover (no red-edge) | Red + NIR |
+| LCI | Chlorophyll with red-edge | NIR + RedEdge + Red |
+| GNDVI | Chlorophyll (green-based) | NIR + Green |
+| GCI | Chlorophyll index | NIR + Green |
+| GRVI | Pigment/vigor proxy | NIR + Green |
+| GOSAVI | Soil-adjusted (green-based) | NIR + Green |
+| GSAVI | Soil-adjusted (green-based) | NIR + Green |
+| GARI | Atmospheric-resistant greenness | NIR + Green + Blue + Red |
+| GLI | RGB-only greenness | Green + Red + Blue |
+| VARI | RGB vegetation fraction | Green + Red + Blue |
 
 ---
 
@@ -79,65 +170,237 @@ Publisher queue depth.
 Calibration files follow the standard ROS camera calibration format.
 
 Example path:
-~/.ros/camera_info/mapir3.yaml
+~/.ros/camera_info/mapir3_ocn.yaml
 
 Run with:
--p camera_info_url:=file:///root/.ros/camera_info/mapir3.yaml
+-p camera_info_url:=file:///root/.ros/camera_info/mapir3_ocn.yaml
 
 If calibration is missing or invalid, the node continues publishing
 with a valid but uncalibrated CameraInfo.
 
 ---
 
+## Build (ROS 2)
+
+From the repo root:
+```
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+```
+
+---
+
 ## Running the Node
 
 Direct execution:
-
-ros2 run mapir_camera_ros2 camera_node --ros-args -r __ns:=/mapir -p debug:=true
-
+```
+ros2 run mapir_camera_ros2 camera_node 
+```
+Direct execution (C++ node):
+```
+ros2 run mapir_camera_ros2 camera_node_cpp
+```
+Direct execution using the installed preset params file:
+```
+ros2 run mapir_camera_ros2 camera_node --ros-args --params-file \
+  $(ros2 pkg prefix mapir_camera_ros2)/share/mapir_camera_ros2/config/mapir_camera_params.yaml
+```
 Debug with explicit log level:
-
+```
 ros2 run mapir_camera_ros2 camera_node --ros-args --log-level mapir_camera:=debug -r __ns:=/mapir -p debug:=true
-
----
-
+```
+GStreamer capture (optional, for Jetson hardware decode):
+```
+ros2 run mapir_camera_ros2 camera_node --ros-args -r __ns:=/mapir \
+  -p use_gstreamer:=true \
+  -p gstreamer_pipeline:="v4l2src device=/dev/video0 ! video/x-h264,width=1280,height=720,framerate=30/1 ! h264parse ! nvv4l2decoder ! videoconvert ! video/x-raw,format=BGR ! appsink drop=true max-buffers=1 sync=false"
+```
 ## Launch File
+```
+ros2 launch mapir_camera_ros2 mapir_camera.launch.py \
+  namespace:=mapir \
+  camera_params_file:=$(ros2 pkg prefix mapir_camera_ros2)/share/mapir_camera_ros2/config/mapir_camera_params.yaml \
+  indices_params_file:=$(ros2 pkg prefix mapir_camera_ros2)/share/mapir_camera_ros2/config/mapir_indices_params.yaml \
+  debug:=true qos_best_effort:=true \
+  camera_info_url:=file:///root/.ros/camera_info/mapir3_ocn.yaml
+```
 
-ros2 launch mapir_camera_ros2 mapir_camera.launch.py namespace:=mapir debug:=true qos_best_effort:=true camera_info_url:=file:///root/.ros/camera_info/mapir3.yaml
-
----
-
-## Viewing the Image Stream
-
-Recommended (headless / container-safe):
-
-ros2 run rqt_image_view rqt_image_view
-
-Select:
-/mapir/image_raw
-
----
+Note: `$(ros2 pkg prefix ...)` points to the installed share folder. If you are running
+from source without installing, point directly at the repo:
+```
+ros2 launch mapir_camera_ros2 mapir_camera.launch.py \
+  namespace:=mapir \
+  camera_params_file:=/path/to/mapir_camera/config/mapir_camera_params.yaml \
+  indices_params_file:=/path/to/mapir_camera/config/mapir_indices_params.yaml
+```
 
 ## Debugging Tips
 
-Check negotiated formats:
-
-v4l2-ctl --device=/dev/video0 --list-formats-ext
 
 Verify publishing:
-
+```
 ros2 topic info /mapir/image_raw -v  
 ros2 topic hz /mapir/image_raw
-
+ros2 topic echo --once /mapir/metadata
+```
+RViz QoS (image not updating):
+- Set Image display QoS Reliability to `Best Effort`, or
+- launch with `qos_best_effort:=false` to publish RELIABLE.
 Run without rebuild (fast iteration):
 
+```
 python3 -m mapir_camera_ros2.camera_node --ros-args -r __ns:=/mapir -p debug:=true
+```
 
----
+## Docker
+
+Build:
+```
+docker build -t mapir_camera_ros2:jazzy .
+```
+
+Run (example with V4L2 camera at `/dev/video0`):
+```
+docker run --rm -it --net=host --device=/dev/video0 mapir_camera_ros2:jazzy
+```
+
+Inside the container:
+```
+ros2 launch mapir_camera_ros2 mapir_camera.launch.py namespace:=mapir video_device:=/dev/video0
+```
+
+Per-index nodes (avoid multi-index bottleneck; keep 1-2 indices per node):
+```
+ros2 launch mapir_camera_ros2 mapir_camera.launch.py \
+  namespace:=mapir enable_indices:=true indices_per_node:=true
+```
+Use all supported indices:
+```
+ros2 launch mapir_camera_ros2 mapir_camera.launch.py \
+  namespace:=mapir enable_indices:=true indices_per_node:=true indices_all:=true
+```
+
+Note: you may need extra device permissions depending on your host setup (e.g., `--privileged`).
+
+Docker compose (runtime, in `Docker/`):
+```
+cd Docker
+docker compose build
+docker compose up mapir_camera
+```
+
+Override which V4L2 nodes are used (recommended if you have stable udev symlinks):
+```bash
+cd Docker
+MAPIR_VIDEO_DEVICE=/dev/mapir MAPIR_METADATA_DEVICE=/dev/mapir_meta docker compose up mapir_camera
+```
+
+Calibration outputs via Docker compose:
+```
+cd Docker
+docker compose run --rm camera_calibration
+docker compose run --rm vignette_calibration
+docker compose run --rm reflectance_calibration
+```
+
+For GUI calibration, the container reads the mounted cookie from
+`/root/.Xauthority`. If your desktop session refuses the connection, allow
+local root access first:
+
+```bash
+xhost +si:localuser:root
+```
+
+Calibration artifacts are now written directly into `config/calibration_files/`:
+- `config/calibration_files/instrinsics/`
+  - dated run folders like `2026_0417_153000__instrinsics/`
+  - `latest/` symlink to the newest intrinsic run
+  - `calibrationdata.tar.gz` (archived from the GUI tool's `/tmp` save output)
+  - `ost.yaml` and `ost.txt` (extracted from the tarball when available)
+  - optional `~/.ros/camera_info/*.yaml` updates (tool behavior-dependent)
+- `config/calibration_files/vignette/`
+  - dated run folders like `2026_0417_153500__vignette/`
+  - `latest/` symlink to the newest vignette run
+  - `flat_b.tiff`, `flat_g.tiff`, `flat_r.tiff`
+  - `flat_b_preview.png`, `flat_g_preview.png`, `flat_r_preview.png`
+  - `flat_fields.npz`
+  - `sample_before_after.png`
+  - `vignette_report.json`
+  - `raw_frames/*.png`
+- `config/calibration_files/reflection/`
+  - dated run folders like `2026_0417_154200__reflection/`
+  - `latest/` symlink to the newest reflectance run
+  - target RAW/JPG captures
+  - `input/*.png` (optional batch input expected)
+  - `reflectance_report.json`
+  - `panel_rois_overlay.png`
+  - `applied/*_reflectance_f32.tiff`
+  - `applied/*_reflectance_u16.tiff`
+
+Useful overrides (examples):
+```
+MAPIR_CAMERA_PARAMS_FILE=/workspaces/ros2_ws/src/mapir_camera/config/mapir_camera_calibration_params.yaml \
+MAPIR_CAL_PATTERN_COLS=10 MAPIR_CAL_PATTERN_ROWS=7 MAPIR_CAL_SQUARE_M=0.024 \
+  docker compose run --rm camera_calibration
+
+MAPIR_VIG_FRAMES=120 MAPIR_VIG_BLUR_KERNEL=51 \
+  docker compose run --rm vignette_calibration
+
+docker compose run --rm reflectance_calibration
+```
+
+`camera_calibration` is interactive (GUI). Keep `mapir_camera` running, move the board
+through different orientations/distances, and click **CALIBRATE** then **SAVE**.
+
+To use generated vignette maps in the camera node:
+```
+ros2 run mapir_camera_ros2 camera_node --ros-args \
+  -p vignette_enabled:=true \
+  -p vignette_flatfield_b_path:=config/calibration_files/vignette/latest/flat_b.tiff \
+  -p vignette_flatfield_g_path:=config/calibration_files/vignette/latest/flat_g.tiff \
+  -p vignette_flatfield_r_path:=config/calibration_files/vignette/latest/flat_r.tiff
+```
+
+Reflectance calibration uses empirical line (per-channel linear fit from known
+panel reflectance values vs measured panel DN). Configure panel ROIs and known
+reflectance values in:
+`config/reflectance_panels.example.json`
+
+The example panel config now defaults to the MAPIR `T4-R50` target geometry:
+each panel is `50 x 50 mm` (`2.0" x 2.0"`), based on MAPIR's product/spec page.
+For OCN captures, the default `reflectance_bgr` values are now derived from the
+MAPIR workbook `MAPIR_Diffuse_Reflectance_Standard_Calibration_Target_Data_T4.xlsx`
+using the `Diffuse Reflectivity` curves at the OCN band centers
+`cyan=494 nm`, `orange=619 nm`, `nir1=823 nm`.
+The Docker reflectance workflow now defaults to the local RAW target capture at
+`config/calibration_files/reflection/2026_0417_153148_009.RAW`, using the
+existing Survey3 RAW decoder in `mapir_camera_core`.
+For panel ROI setup, use the built-in OpenCV ROI selector:
+run `docker compose run --rm reflectance_calibration --select-rois` from
+`Docker/`. By default it writes `/tmp/reflectance_panels.selected.json`
+(override with `--panel-config-out`).
+
+Reflectance tool quality controls:
+- rejects panel ROIs outside configurable DN fraction bounds
+- defaults: `MAPIR_REF_PANEL_MIN_FRAC=0.02`, `MAPIR_REF_PANEL_MAX_FRAC=0.98`
+- expects 16-bit radiometric input (8-bit can be enabled explicitly with `--allow-8bit`)
+
+Persistent `/dev/mapir` symlink (udev):
+1. Copy the rule file:
+   - `sudo cp config/udev/99-mapir-camera.rules /etc/udev/rules.d/`
+2. Reload/apply:
+   - `sudo udevadm control --reload-rules`
+   - `sudo udevadm trigger`
+3. Replug camera and verify:
+   - `ls -l /dev/mapir /dev/mapir_meta`
+
+Rule file:
+- `config/udev/99-mapir-camera.rules`
 
 ## License
 
-MIT License
+GNU General Public License v3.0 (GPL-3.0-only)
 
 © Duda Andrada
 

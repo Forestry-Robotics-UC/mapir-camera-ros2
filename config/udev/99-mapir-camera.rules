@@ -1,0 +1,13 @@
+# MAPIR persistent naming for UVC nodes.
+# Rule intent:
+# - index=0 -> primary video stream  -> /dev/mapir
+# - index=1 -> metadata/secondary    -> /dev/mapir_meta
+#
+# This matches by product string containing "MAPIR".
+# If your device exposes a different product name, adjust ENV{ID_V4L_PRODUCT}.
+#
+# Inspect properties with:
+#   udevadm info -q property -n /dev/video0
+
+SUBSYSTEM=="video4linux", ENV{ID_V4L_PRODUCT}=="*MAPIR*", ATTR{index}=="0", SYMLINK+="mapir", GROUP="video", MODE="0660"
+SUBSYSTEM=="video4linux", ENV{ID_V4L_PRODUCT}=="*MAPIR*", ATTR{index}=="1", SYMLINK+="mapir_meta", GROUP="video", MODE="0660"

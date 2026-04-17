@@ -1,0 +1,58 @@
+# Default parameters for `mapir_camera_ros2` camera_node.
+#
+# ROS 2 YAML parameter files are matched by node name. Using `/**` makes this
+# file apply regardless of whether you run the node as `mapir_camera` (default)
+# or rename it (e.g., launch files often set name:=camera).
+
+/**:
+  ros__parameters:
+    # Debug
+    debug: false
+    debug_period_s: 1.0
+
+    # V4L2
+    video_device: /dev/video0
+    pixel_format: MJPG  # MJPG or H264 (device-dependent)
+    use_gstreamer: false
+    gstreamer_pipeline: ''  # Custom pipeline string when use_gstreamer=true
+    image_width: 1920
+    image_height: 1440
+    framerate: 30.0
+
+    # Frames / calibration
+    frame_id: mapir3_optical_frame
+    camera_name: mapir3_ocn
+    camera_info_url: package://mapir_camera_ros2/config/mapir3_ocn_1920x1440.yaml
+
+
+
+    # QoS
+    qos_best_effort: true
+    qos_depth: 5
+
+    # Optional UVC control lock at startup (via v4l2-ctl)
+    uvc_controls_enabled: false  # Apply requested UVC controls once before capture starts
+    uvc_controls_device: ''  # Control device path; empty uses video_device
+    auto_exposure_mode: -1  # -1 keep current, commonly 1 = manual mode
+    exposure_time_absolute: -1  # -1 keep current, otherwise set UVC absolute exposure
+    gain: -1  # -1 keep current, otherwise set analog/digital gain
+    exposure_dynamic_framerate: -1  # -1 keep current, 0 disables dynamic fps on many webcams
+    white_balance_automatic: -1  # -1 keep current, 0 manual, 1 auto
+    white_balance_temperature: -1  # -1 keep current, otherwise set WB temperature
+    power_line_frequency: -1  # -1 keep current, 0/1/2 device dependent
+
+    # UVC metadata capture
+    metadata_enabled: false  # Enable /<ns>/metadata JSON publication
+    metadata_device: /dev/video1  # UVC metadata node (e.g., /dev/video5)
+    metadata_topic: metadata  # Relative topic name for JSON metadata
+    metadata_log_path: ''  # Optional absolute path to append JSONL metadata
+    metadata_log_flush_every_n: 30  # Flush metadata log every N records (lower = safer, higher = faster)
+
+    # Vignette correction (flat-field)
+    vignette_enabled: false  # Enable per-channel flat-field correction before publishing
+    vignette_flatfield_b_path: ''  # Absolute path to flat-field image for channel B
+    vignette_flatfield_g_path: ''  # Absolute path to flat-field image for channel G
+    vignette_flatfield_r_path: ''  # Absolute path to flat-field image for channel R
+    vignette_dark_current_b: 0  # Dark-current offset for channel B
+    vignette_dark_current_g: 0  # Dark-current offset for channel G
+    vignette_dark_current_r: 0  # Dark-current offset for channel R

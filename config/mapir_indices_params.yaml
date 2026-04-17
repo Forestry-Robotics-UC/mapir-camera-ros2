@@ -1,0 +1,64 @@
+# Default parameters for `mapir_camera_ros2` indices_node.
+#
+# This is a baseline tuned for computing NDVI-like indices when using an
+# RGN-style filter set (Green, Red, NIR2). If you're using a different filter
+# set (e.g., OCN), adjust `filter_set` and/or the *_channel overrides.
+
+# ROS 2 YAML parameter files are matched by node name. Using `/**` makes this
+# file apply regardless of node renaming (e.g., launch files).
+
+/**:
+  ros__parameters:
+    # Debug
+    debug: false
+    debug_period_s: 1.0
+
+    # Runtime toggle
+    enabled: true
+
+    # IO
+    image_topic: image_raw
+
+    # Indices (case-insensitive). Add `_1`/`_2` to prefer NIR1/NIR2.
+    # Supported: evi, fci1, fci2, gemi, gari, gci, gli, gndvi, gosavi, grvi,
+    # gsavi, lai, lci, mnli, msavi2, ndre, ndvi, nli, osavi, rdvi, savi, tdvi,
+    # vari, wdrvi
+    # Keep to 1-2 indices at a time for real-time.
+    indices: [ndvi, osavi]
+
+    # Band→channel preset (best-effort). Options: RGN, NGB, OCN, RGB.
+    filter_set: OCN
+
+    # Performance
+    normalize_input: true
+    downsample_factor: 1
+    publish_every_n: 1
+
+    # Optional colorized output (BGR8)
+    publish_color: false
+    colormap: viridis  # e.g., viridis, jet, gray, custom
+    colorize_min: -1.0
+    colorize_max: 1.0
+    custom_colormap: ''  # 'value,r,g,b; value,r,g,b; ...' (used when colormap=custom)
+
+    # Index constants
+    eps: 1.0e-6
+    gari_gamma: 1.7
+    wdrvi_alpha: 0.2
+    mnli_L: 0.5
+
+    # QoS
+    qos_best_effort: true
+    qos_depth: 5
+
+    # Optional explicit overrides (0=B, 1=G, 2=R). Set to -1 to leave unset.
+    # For RGN preset, assumed mapping: green=B(0), red=G(1), nir2=R(2).
+    blue_channel: -1
+    green_channel: -1
+    red_channel: -1
+    rededge_channel: -1
+    nir_channel: -1
+    nir1_channel: -1
+    nir2_channel: -1
+    cyan_channel: -1
+    orange_channel: -1
