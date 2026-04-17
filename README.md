@@ -71,7 +71,7 @@ Common camera_node parameters:
 | `use_gstreamer` | `bool` | `false` | Use GStreamer pipeline for capture. |
 | `gstreamer_pipeline` | `str` | `''` | Custom GStreamer pipeline string. |
 | `frame_id` | `str` | `mapir3_optical_frame` | REP-105 optical frame. |
-| `camera_info_url` | `str` | `''` | `file:///.../calib.yaml`. |
+| `camera_info_url` | `str` | `package://mapir_camera_ros2/config/mapir3_ocn_1920x1440.yaml` | `package://...` or `file:///.../calib.yaml`. |
 | `qos_best_effort` | `bool` | `true` | BEST_EFFORT recommended. |
 | `uvc_controls_enabled` | `bool` | `false` | Lock camera UVC controls at startup using `v4l2-ctl`. |
 | `uvc_controls_device` | `str` | `''` | Device used for control lock; empty uses `video_device`. |
@@ -237,27 +237,6 @@ ros2 launch mapir_camera_ros2 mapir_camera.launch.py \
 
 ## Debugging Tips
 
-Check negotiated formats:
-```
-v4l2-ctl --device=/dev/video0 --list-formats-ext
-```
-Lock camera controls (example manual profile):
-```
-v4l2-ctl -d /dev/video0 \
-  -c auto_exposure=1,exposure_dynamic_framerate=0,exposure_time_absolute=166,gain=64,white_balance_automatic=0,white_balance_temperature=4600
-```
-Read back controls:
-```
-v4l2-ctl -d /dev/video0 --get-ctrl=auto_exposure,exposure_dynamic_framerate,exposure_time_absolute,gain,white_balance_automatic,white_balance_temperature
-```
-
-Available resolutions/frame rates are camera-dependent.  
-Example output captured in this environment for `/dev/video0` (ASUS FHD webcam):
-
-- `MJPG`: 1920x1080@30/15, 1280x960@30/15, 1280x720@30/15, 640x480@30/15, 640x360@30/15, 352x288@30/15, 320x240@30/15, 176x144@30/15
-- `YUYV`: 1920x1080@5, 1280x720@10, 640x480@30/15, 640x360@30/15, 352x288@30/15, 320x240@30/15, 176x144@30/15, 160x120@30/15
-
-This probed camera does **not** advertise `2560x1440@30`. For MAPIR hardware, run the same command above and use the exact modes it reports.
 
 Verify publishing:
 ```
@@ -311,6 +290,12 @@ docker compose build
 docker compose up mapir_camera
 ```
 
+Override which V4L2 nodes are used (recommended if you have stable udev symlinks):
+```bash
+cd Docker
+MAPIR_VIDEO_DEVICE=/dev/mapir MAPIR_METADATA_DEVICE=/dev/mapir_meta docker compose up mapir_camera
+```
+
 Calibration outputs via Docker compose:
 ```
 cd Docker
@@ -319,20 +304,34 @@ docker compose run --rm vignette_calibration
 docker compose run --rm reflectance_calibration
 ```
 
-Outputs are written to `${MAPIR_OUTPUT_DIR:-../outputs}` with:
-- `camera_calibration/`
-  - `calibrationdata.tar.gz` (from `camera_calibration` when you click **SAVE**)
-  - `ost.yaml` and `ost.txt` (inside the tarball)
+For GUI calibration, the container reads the mounted cookie from
+`/root/.Xauthority`. If your desktop session refuses the connection, allow
+local root access first:
+
+```bash
+xhost +si:localuser:root
+```
+
+Calibration artifacts are now written directly into `config/calibration_files/`:
+- `config/calibration_files/instrinsics/`
+  - dated run folders like `2026_0417_153000__instrinsics/`
+  - `latest/` symlink to the newest intrinsic run
+  - `calibrationdata.tar.gz` (archived from the GUI tool's `/tmp` save output)
+  - `ost.yaml` and `ost.txt` (extracted from the tarball when available)
   - optional `~/.ros/camera_info/*.yaml` updates (tool behavior-dependent)
-- `vignette_calibration/`
+- `config/calibration_files/vignette/`
+  - dated run folders like `2026_0417_153500__vignette/`
+  - `latest/` symlink to the newest vignette run
   - `flat_b.tiff`, `flat_g.tiff`, `flat_r.tiff`
   - `flat_b_preview.png`, `flat_g_preview.png`, `flat_r_preview.png`
   - `flat_fields.npz`
   - `sample_before_after.png`
   - `vignette_report.json`
   - `raw_frames/*.png`
-- `reflectance_calibration/`
-  - `calibration_target.png` (input expected)
+- `config/calibration_files/reflection/`
+  - dated run folders like `2026_0417_154200__reflection/`
+  - `latest/` symlink to the newest reflectance run
+  - target RAW/JPG captures
   - `input/*.png` (optional batch input expected)
   - `reflectance_report.json`
   - `panel_rois_overlay.png`
@@ -341,7 +340,8 @@ Outputs are written to `${MAPIR_OUTPUT_DIR:-../outputs}` with:
 
 Useful overrides (examples):
 ```
-MAPIR_CAL_PATTERN_COLS=9 MAPIR_CAL_PATTERN_ROWS=6 MAPIR_CAL_SQUARE_M=0.024 \
+MAPIR_CAMERA_PARAMS_FILE=/workspaces/ros2_ws/src/mapir_camera/config/mapir_camera_calibration_params.yaml \
+MAPIR_CAL_PATTERN_COLS=10 MAPIR_CAL_PATTERN_ROWS=7 MAPIR_CAL_SQUARE_M=0.024 \
   docker compose run --rm camera_calibration
 
 MAPIR_VIG_FRAMES=120 MAPIR_VIG_BLUR_KERNEL=51 \
@@ -357,15 +357,28 @@ To use generated vignette maps in the camera node:
 ```
 ros2 run mapir_camera_ros2 camera_node --ros-args \
   -p vignette_enabled:=true \
-  -p vignette_flatfield_b_path:=/abs/path/flat_b.tiff \
-  -p vignette_flatfield_g_path:=/abs/path/flat_g.tiff \
-  -p vignette_flatfield_r_path:=/abs/path/flat_r.tiff
+  -p vignette_flatfield_b_path:=config/calibration_files/vignette/latest/flat_b.tiff \
+  -p vignette_flatfield_g_path:=config/calibration_files/vignette/latest/flat_g.tiff \
+  -p vignette_flatfield_r_path:=config/calibration_files/vignette/latest/flat_r.tiff
 ```
 
 Reflectance calibration uses empirical line (per-channel linear fit from known
 panel reflectance values vs measured panel DN). Configure panel ROIs and known
 reflectance values in:
 `config/reflectance_panels.example.json`
+
+The example panel config now defaults to the MAPIR `T4-R50` target geometry:
+each panel is `50 x 50 mm` (`2.0" x 2.0"`), based on MAPIR's product/spec page.
+For OCN captures, the default `reflectance_bgr` values are now derived from the
+local workbook `~/Downloads/MAPIR_Diffuse_Reflectance_Standard_Calibration_Target_Data_T4.xlsx`
+using the `Diffuse Reflectivity` curves at the OCN band centers
+`cyan=494 nm`, `orange=619 nm`, `nir1=823 nm`.
+The Docker reflectance workflow now defaults to the local RAW target capture at
+`config/calibration_files/reflection/2026_0417_153148_009.RAW`, using the
+existing Survey3 RAW decoder in `mapir_camera_core`.
+For panel ROI setup, the simplest workflow is the built-in OpenCV ROI selector:
+run `docker compose run --rm reflectance_calibration --select-rois-only` from
+`Docker/` and drag one box per panel to write an updated JSON config.
 
 Reflectance tool quality controls:
 - rejects panel ROIs outside configurable DN fraction bounds

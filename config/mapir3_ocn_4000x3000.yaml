@@ -1,0 +1,30 @@
+# MAPIR Survey3 OCN intrinsic calibration at 4000x3000 (raw system mode).
+# Scaled from 1920x1440 USB calibration.
+# Scale factor: 4000/1920 = 2.0833, 3000/1440 = 2.0833
+
+image_width: 4000
+image_height: 3000
+camera_name: mapir3_ocn
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [2880.014846, 0.0, 1842.109859,
+         0.0, 2884.418110, 1491.545992,
+         0.0, 0.0, 1.0]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [0, 0, 0, 0, 0.0]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0,
+         0.0, 1.0, 0.0,
+         0.0, 0.0, 1.0]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [2898.450348, 0.0, 1840.629395, 0.0,
+         0.0, 2902.482515, 1493.123040, 0.0,
+         0.0, 0.0, 1.0, 0.0]

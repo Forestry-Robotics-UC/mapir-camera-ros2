@@ -1,0 +1,29 @@
+# MAPIR Survey3 OCN intrinsic calibration at 1920x1440.
+# Generated from saved calibration output (`outputs/calibrationdata2.tar.gz`).
+
+image_width: 1920
+image_height: 1440
+camera_name: mapir3_ocn
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [1382.674326, 0.0, 884.649632,
+         0.0, 1385.540533, 715.781224,
+         0.0, 0.0, 1.0]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [0.037530, -0.052489, 0.001197, -0.000132, 0.0]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0,
+         0.0, 1.0, 0.0,
+         0.0, 0.0, 1.0]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [1389.696167, 0.0, 882.901945, 0.0,
+         0.0, 1393.989014, 716.749230, 0.0,
+         0.0, 0.0, 1.0, 0.0]

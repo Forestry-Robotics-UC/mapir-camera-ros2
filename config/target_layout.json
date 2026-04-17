@@ -1,0 +1,48 @@
+{
+  "description": "MAPIR T4-R50 reflectance target with ArUco marker fiducial for automatic board detection and pose estimation. Board coordinates are in mm, with origin at the ArUco marker center. Panel coordinates were fitted from the RAW calibration capture 2026_0417_153120_001.RAW using auto-detected ArUco corners plus manually verified panel ROIs. For OCN captures, reflectance_bgr is [cyan(494nm), orange(619nm), nir1(823nm)].",
+  "target_model": "T4-R50",
+  "target_dimensions_closed_mm": [241.3, 147.3, 71.1],
+  "target_dimensions_open_mm": [241.3, 287.0, 48.3],
+  "aruco_marker": {
+    "dictionary": "4X4_250",
+    "marker_id": 9,
+    "size_mm": 80.0,
+    "description": "ArUco 4X4 marker (ID 9) fiducial on target. Auto-detected by OpenCV ArUco detector."
+  },
+  "panel_size_mm": [50.0, 50.0],
+  "panel_size_in": [2.0, 2.0],
+  "reflectance_curve_type": "Diffuse Reflectivity",
+  "reflectance_curve_source_file": "~/Downloads/MAPIR_Diffuse_Reflectance_Standard_Calibration_Target_Data_T4.xlsx",
+  "reflectance_curve_band_centers_nm_ocn_bgr": [494, 619, 823],
+  "panels_in_board_coordinates": [
+    {
+      "name": "panel_1_dark",
+      "center_mm": [120.0, -22.7],
+      "size_mm": [50.0, 50.0],
+      "reflectance_bgr": [0.221625, 0.223694, 0.246623]
+    },
+    {
+      "name": "panel_2_mid_dark",
+      "center_mm": [174.1, -22.7],
+      "size_mm": [50.0, 50.0],
+      "reflectance_bgr": [0.354867, 0.342287, 0.382682]
+    },
+    {
+      "name": "panel_3_mid_light",
+      "center_mm": [120.4, 27.9],
+      "size_mm": [50.0, 50.0],
+      "reflectance_bgr": [0.719488, 0.734928, 0.772859]
+    },
+    {
+      "name": "panel_4_light",
+      "center_mm": [174.0, 27.6],
+      "size_mm": [50.0, 50.0],
+      "reflectance_bgr": [0.851959, 0.859014, 0.861928]
+    }
+  ],
+  "recommended_capture_distance_m": {
+    "Survey3W": [0.2, 5.0],
+    "Survey3N": [0.5, 12.0]
+  },
+  "reference_source": "https://www.mapir.camera/en-gb/products/diffuse-reflectance-standard-calibration-target-package-t4-r50"
+}

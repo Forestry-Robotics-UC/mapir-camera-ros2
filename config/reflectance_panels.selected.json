@@ -1,5 +1,5 @@
 {
-  "description": "MAPIR T4-R50 layout metadata plus example panel ROIs and diffuse-reflectance values for the OCN band centers in [0..1]. For OCN captures, reflectance_bgr is channel order [cyan(494nm), orange(619nm), nir1(823nm)].",
+  "description": "MAPIR T4-R50 reflectance target with measured panel ROIs and diffuse-reflectance values at the OCN band centers. Used for empirical line calibration.",
   "target_model": "T4-R50",
   "target_dimensions_closed_mm": [241.3, 147.3, 71.1],
   "target_dimensions_open_mm": [241.3, 287.0, 48.3],
@@ -12,26 +12,26 @@
     "Survey3W": [0.2, 5.0],
     "Survey3N": [0.5, 12.0]
   },
-  "reference_source": "https://www.mapir.camera/products/diffuse-reflectance-standard-calibration-target-package-t4-r50",
+  "reference_source": "https://www.mapir.camera/en-gb/products/diffuse-reflectance-standard-calibration-target-package-t4-r50",
   "panels": [
     {
       "name": "panel_1_dark",
-      "roi": [100, 100, 80, 80],
+      "roi": [1934, 1591, 135, 125],
       "reflectance_bgr": [0.221625, 0.223694, 0.246623]
     },
     {
       "name": "panel_2_mid_dark",
-      "roi": [220, 100, 80, 80],
+      "roi": [2069, 1591, 135, 125],
       "reflectance_bgr": [0.354867, 0.342287, 0.382682]
     },
     {
       "name": "panel_3_mid_light",
-      "roi": [340, 100, 80, 80],
+      "roi": [1934, 1716, 135, 125],
       "reflectance_bgr": [0.719488, 0.734928, 0.772859]
     },
     {
       "name": "panel_4_light",
-      "roi": [460, 100, 80, 80],
+      "roi": [2069, 1716, 135, 125],
       "reflectance_bgr": [0.851959, 0.859014, 0.861928]
     }
   ]
