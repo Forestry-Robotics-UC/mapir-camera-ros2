@@ -21,16 +21,15 @@ def parse_args() -> argparse.Namespace:
         description='Compute per-channel empirical-line reflectance calibration and apply it.'
     )
     parser.add_argument('--calibration-image', required=True)
-    parser.add_argument('--panel-config', required=True)
+    parser.add_argument(
+        '--panel-config',
+        default='',
+        help='Panel config JSON with panel names/ROIs/reflectance values.',
+    )
     parser.add_argument(
         '--select-rois',
         action='store_true',
         help='Interactively select panel ROIs with OpenCV and save an updated panel config.',
-    )
-    parser.add_argument(
-        '--select-rois-only',
-        action='store_true',
-        help='Select panel ROIs, write the updated panel config, and exit without calibrating.',
     )
     parser.add_argument(
         '--aruco-mode',
@@ -55,7 +54,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--panel-config-out',
         default='',
-        help='Optional output JSON path for the ROI-updated panel config.',
+        help='Optional output JSON path for the ROI-updated panel config (default: /tmp/reflectance_panels.selected.json).',
     )
     parser.add_argument('--apply-image', default='')
     parser.add_argument('--apply-dir', default='')
@@ -422,10 +421,9 @@ def main() -> int:
     out_dir = Path(args.out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    panel_cfg_path = Path(args.panel_config).resolve()
     calibration_image_path = Path(args.calibration_image).resolve()
-
-    panel_config = _load_panel_config(panel_cfg_path)
+    panel_cfg_path = Path(args.panel_config).resolve() if args.panel_config else None
+    panel_config = _load_panel_config(panel_cfg_path) if panel_cfg_path else {'panels': []}
     panels = panel_config['panels']
     calibration_image = _read_image(calibration_image_path)
     if calibration_image.dtype == np.uint8 and not args.allow_8bit:
@@ -484,8 +482,11 @@ def main() -> int:
         qr_metadata = aruco_metadata or {}
 
         # Update panel config with detected ROIs but keep reflectance values from original
-        for detected, orig in zip(detected_panels, panels):
-            detected['reflectance_bgr'] = orig.get('reflectance_bgr', [0.5, 0.5, 0.5])
+        for idx, detected in enumerate(detected_panels):
+            if idx < len(panels):
+                detected['reflectance_bgr'] = panels[idx].get('reflectance_bgr', [0.5, 0.5, 0.5])
+            else:
+                detected['reflectance_bgr'] = detected.get('reflectance_bgr', [0.5, 0.5, 0.5])
 
         panel_config['panels'] = detected_panels
         panels = detected_panels
@@ -498,17 +499,20 @@ def main() -> int:
         _write_panel_config(panel_cfg_out_path, panel_config)
         print(f'Detected panel config written to: {panel_cfg_out_path}')
 
-    elif args.select_rois or args.select_rois_only:
+    elif args.select_rois:
+        if panel_cfg_path is None:
+            raise RuntimeError('--select-rois requires --panel-config so panel names/reflectance values are known')
         panel_config['panels'] = _select_panel_rois(calibration_image, panels)
         panels = panel_config['panels']
         if args.panel_config_out:
             panel_cfg_out_path = Path(args.panel_config_out).resolve()
         else:
-            panel_cfg_out_path = out_dir / 'reflectance_panels.selected.json'
+            panel_cfg_out_path = Path('/tmp/reflectance_panels.selected.json')
         _write_panel_config(panel_cfg_out_path, panel_config)
         print(f'Updated panel config written to: {panel_cfg_out_path}')
-        if args.select_rois_only:
-            return 0
+
+    if not panels:
+        raise RuntimeError('No panel definitions available. Provide --panel-config or use --aruco-mode.')
 
     _write_overlay(calibration_image, panels, out_dir / 'panel_rois_overlay.png')
 
@@ -592,7 +596,7 @@ def main() -> int:
 
     report = {
         'calibration_image': str(calibration_image_path),
-        'panel_config': str(panel_cfg_path),
+        'panel_config': str(panel_cfg_path) if panel_cfg_path is not None else '',
         'panel_config_metadata': {
             key: value for key, value in panel_config.items() if key != 'panels'
         },

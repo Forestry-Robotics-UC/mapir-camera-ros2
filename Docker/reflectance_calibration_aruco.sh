@@ -11,9 +11,9 @@ echo "Running reflectance calibration with ArUco auto-detection..."
 
 python3 /workspaces/ros2_ws/src/mapir_camera/tools/reflectance_calibration.py \
   --calibration-image /outputs/reflectance_calibration/2026_0417_153120_001.RAW \
-  --panel-config /workspaces/ros2_ws/src/mapir_camera/config/reflectance_panels.selected.json \
+  --panel-config /workspaces/ros2_ws/src/mapir_camera/config/calibration_files/reflection/reflectance_panels.selected.json \
   --aruco-mode \
-  --target-layout /workspaces/ros2_ws/src/mapir_camera/config/target_layout.json \
+  --target-layout /workspaces/ros2_ws/src/mapir_camera/config/t4-r50_mapir_reflactance_target_layout.json \
   --camera-intrinsics /workspaces/ros2_ws/src/mapir_camera/config/mapir3_ocn_4000x3000.yaml \
   --out-dir "${out_dir}" \
   "$@"

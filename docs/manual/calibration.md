@@ -149,8 +149,8 @@ Default target profile in this repo:
 - The default calibration image is the local RAW target capture
   `config/calibration_files/reflection/2026_0417_153148_009.RAW`.
 - MAPIR lists each reflectance panel as `2.0" x 2.0"` (`50 x 50 mm`).
-- The default OCN `reflectance_bgr` values are now populated from the local
-  workbook `~/Downloads/MAPIR_Diffuse_Reflectance_Standard_Calibration_Target_Data_T4.xlsx`
+- The default OCN `reflectance_bgr` values are now populated from the MAPIR
+  workbook `MAPIR_Diffuse_Reflectance_Standard_Calibration_Target_Data_T4.xlsx`
   using the `Diffuse Reflectivity` curves sampled at the OCN band centers
   `cyan=494 nm`, `orange=619 nm`, and `nir1=823 nm`.
 - MAPIR also lists recommended capture distance as `0.2-5.0 m` for Survey3W and
@@ -173,9 +173,10 @@ Simplest ROI setup workflow:
 cd Docker
 xhost +si:localuser:root
 docker compose run --rm reflectance_calibration \
-  --select-rois-only \
+  --select-rois \
+  --panel-config /workspaces/ros2_ws/src/mapir_camera/config/calibration_files/reflection/reflectance_panels.example.json \
   --calibration-image /outputs/reflectance_calibration/2026_0417_153120_001.RAW \
-  --panel-config-out /outputs/reflectance_calibration/reflectance_panels.selected.json
+  --panel-config-out /tmp/reflectance_panels.selected.json
 ```
 
 This uses OpenCV's built-in ROI selector. Drag one rectangle per panel in the

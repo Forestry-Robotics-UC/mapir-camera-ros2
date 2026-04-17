@@ -11,8 +11,8 @@ services:
     volumes:
       - /home/forestsphere/work_utils/mapir-camera-ros2:/workspaces/ros2_ws/src/mapir_camera:ro
     devices:
-      - ${MAPIR_VIDEO_DEVICE:-/dev/video0}:${MAPIR_VIDEO_DEVICE:-/dev/video0}
-      - ${MAPIR_METADATA_DEVICE:-/dev/video1}:${MAPIR_METADATA_DEVICE:-/dev/video1}
+      - ${MAPIR_VIDEO_DEVICE:-/dev/mapir}:${MAPIR_VIDEO_DEVICE:-/dev/video0}
+      - ${MAPIR_METADATA_DEVICE:-/dev/mapir_meta}:${MAPIR_METADATA_DEVICE:-/dev/video1}
     stdin_open: true
     tty: true
     command:
@@ -23,7 +23,11 @@ services:
       - -r
       - __ns:=/${MAPIR_NAMESPACE:-mapir}
       - --params-file
-      - /workspaces/ros2_ws/src/mapir_camera/config/mapir_camera_params.yaml
+      - ${MAPIR_CAMERA_PARAMS_FILE:-/workspaces/ros2_ws/src/mapir_camera/config/mapir_camera_params.yaml}
+      - -p
+      - video_device:=${MAPIR_VIDEO_DEVICE:-/dev/video0}
+      - -p
+      - metadata_device:=${MAPIR_METADATA_DEVICE:-/dev/video1}
 
   rviz_with_camera:
     build:
@@ -82,8 +86,9 @@ services:
       - DISPLAY=${DISPLAY}
       - XAUTHORITY=${XAUTHORITY:-$HOME/.Xauthority}
       - XDG_RUNTIME_DIR=/tmp/runtime-root
+      - LIBGL_ALWAYS_SOFTWARE=${LIBGL_ALWAYS_SOFTWARE:-1}
     volumes:
-      - ${MAPIR_OUTPUT_DIR:-../outputs}:/outputs
+      - ../config/calibration_files/instrinsics:/outputs
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
       - ${XAUTHORITY:-$HOME/.Xauthority}:/root/.Xauthority:ro
     devices:
@@ -94,20 +99,26 @@ services:
     tty: true
     working_dir: /outputs
     command:
-      - ros2
-      - run
-      - camera_calibration
-      - cameracalibrator
-      - --size
-      - ${MAPIR_CAL_PATTERN_COLS:-9}x${MAPIR_CAL_PATTERN_ROWS:-6}
-      - --square
-      - ${MAPIR_CAL_SQUARE_M:-0.024}
-      - --no-service-check
-      - --ros-args
-      - -r
-      - image:=/${MAPIR_NAMESPACE:-mapir}/image_raw
-      - -r
-      - camera:=/${MAPIR_NAMESPACE:-mapir}
+      - /bin/bash
+      - -lc
+      - >
+        set -e;
+        stamp="$${MAPIR_CAL_RUN_TAG:-$$(date +%Y_%m%d_%H%M%S)}";
+        purpose="$${MAPIR_INTRINSICS_PURPOSE:-instrinsics}";
+        out_dir="/outputs/$${stamp}__$${purpose}";
+        mkdir -p "$${out_dir}";
+        ros2 run camera_calibration cameracalibrator
+        --size ${MAPIR_CAL_PATTERN_COLS:-10}x${MAPIR_CAL_PATTERN_ROWS:-7}
+        --square ${MAPIR_CAL_SQUARE_M:-0.025}
+        --no-service-check
+        --ros-args
+        -r image:=/${MAPIR_NAMESPACE:-mapir}/image_raw
+        -r camera:=/${MAPIR_NAMESPACE:-mapir};
+        if [ -f /tmp/calibrationdata.tar.gz ]; then
+          cp /tmp/calibrationdata.tar.gz "$${out_dir}/calibrationdata.tar.gz";
+          tar -xzf /tmp/calibrationdata.tar.gz -C "$${out_dir}" || true;
+        fi;
+        ln -sfn "$$(basename "$${out_dir}")" /outputs/latest
 
   vignette_calibration:
     build:
@@ -120,34 +131,32 @@ services:
       - PYTHONPATH=/workspaces/ros2_ws/src/mapir_camera
     volumes:
       - /home/forestsphere/work_utils/mapir-camera-ros2:/workspaces/ros2_ws/src/mapir_camera:ro
-      - ${MAPIR_OUTPUT_DIR:-../outputs}:/outputs
+      - ../config/calibration_files/vignette:/outputs/vignette_calibration
     devices:
-      - ${MAPIR_VIDEO_DEVICE:-/dev/video0}:${MAPIR_VIDEO_DEVICE:-/dev/video0}
+      - ${MAPIR_VIDEO_DEVICE:-/dev/mapir}:/dev/video0
     stdin_open: true
     tty: true
     command:
-      - python3
-      - /workspaces/ros2_ws/src/mapir_camera/tools/vignette_calibration.py
-      - --video-device
-      - ${MAPIR_VIDEO_DEVICE:-/dev/video0}
-      - --pixel-format
-      - ${MAPIR_VIG_PIXEL_FORMAT:-MJPG}
-      - --width
-      - ${MAPIR_VIG_WIDTH:-1280}
-      - --height
-      - ${MAPIR_VIG_HEIGHT:-720}
-      - --fps
-      - ${MAPIR_VIG_FPS:-30}
-      - --frames
-      - ${MAPIR_VIG_FRAMES:-80}
-      - --warmup-frames
-      - ${MAPIR_VIG_WARMUP:-20}
-      - --blur-kernel
-      - ${MAPIR_VIG_BLUR_KERNEL:-41}
-      - --epsilon
-      - ${MAPIR_VIG_EPSILON:-0.001}
-      - --out-dir
-      - /outputs/vignette_calibration
+      - /bin/bash
+      - -lc
+      - >
+        set -e;
+        stamp="$${MAPIR_CAL_RUN_TAG:-$$(date +%Y_%m%d_%H%M%S)}";
+        purpose="$${MAPIR_VIGNETTE_PURPOSE:-vignette}";
+        out_dir="/outputs/vignette_calibration/$${stamp}__$${purpose}";
+        mkdir -p "$${out_dir}";
+        python3 /workspaces/ros2_ws/src/mapir_camera/tools/vignette_calibration.py
+        --video-device ${MAPIR_VIG_VIDEO_DEVICE:-/dev/video0}
+        --pixel-format ${MAPIR_VIG_PIXEL_FORMAT:-MJPG}
+        --width ${MAPIR_VIG_WIDTH:-1280}
+        --height ${MAPIR_VIG_HEIGHT:-720}
+        --fps ${MAPIR_VIG_FPS:-30}
+        --frames ${MAPIR_VIG_FRAMES:-80}
+        --warmup-frames ${MAPIR_VIG_WARMUP:-20}
+        --blur-kernel ${MAPIR_VIG_BLUR_KERNEL:-41}
+        --epsilon ${MAPIR_VIG_EPSILON:-0.001}
+        --out-dir "$${out_dir}";
+        ln -sfn "$$(basename "$${out_dir}")" /outputs/vignette_calibration/latest
 
   reflectance_calibration:
     build:
@@ -157,26 +166,41 @@ services:
     network_mode: host
     environment:
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - DISPLAY=${DISPLAY}
+      - XAUTHORITY=${XAUTHORITY:-$HOME/.Xauthority}
+      - XDG_RUNTIME_DIR=/tmp/runtime-root
+      - LIBGL_ALWAYS_SOFTWARE=${LIBGL_ALWAYS_SOFTWARE:-1}
       - PYTHONPATH=/workspaces/ros2_ws/src/mapir_camera
     volumes:
       - /home/forestsphere/work_utils/mapir-camera-ros2:/workspaces/ros2_ws/src/mapir_camera:ro
-      - ${MAPIR_OUTPUT_DIR:-../outputs}:/outputs
+      - ../config/calibration_files/reflection:/outputs/reflectance_calibration
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - ${XAUTHORITY:-$HOME/.Xauthority}:/root/.Xauthority:ro
+    stdin_open: true
+    tty: true
+    entrypoint:
+      - /bin/bash
+      - /workspaces/ros2_ws/src/mapir_camera/Docker/reflectance_calibration_entrypoint.sh
+
+  roi_selector:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mapir_camera_ros2:jazzy
+    network_mode: host
+    environment:
+      - DISPLAY=${DISPLAY}
+      - XAUTHORITY=${XAUTHORITY:-$HOME/.Xauthority}
+      - XDG_RUNTIME_DIR=/tmp/runtime-root
+      - PYTHONPATH=/workspaces/ros2_ws/src/mapir_camera
+      - MPLBACKEND=TkAgg
+    volumes:
+      - /home/forestsphere/work_utils/mapir-camera-ros2:/workspaces/ros2_ws/src/mapir_camera:ro
+      - ../config/calibration_files/reflection:/outputs/reflectance_calibration
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - ${XAUTHORITY:-$HOME/.Xauthority}:/root/.Xauthority:ro
     stdin_open: true
     tty: true
     command:
       - python3
-      - /workspaces/ros2_ws/src/mapir_camera/tools/reflectance_calibration.py
-      - --calibration-image
-      - /outputs/reflectance_calibration/calibration_target.png
-      - --panel-config
-      - /workspaces/ros2_ws/src/mapir_camera/config/reflectance_panels.example.json
-      - --apply-dir
-      - /outputs/reflectance_calibration/input
-      - --glob
-      - "*.png"
-      - --panel-min-frac
-      - ${MAPIR_REF_PANEL_MIN_FRAC:-0.02}
-      - --panel-max-frac
-      - ${MAPIR_REF_PANEL_MAX_FRAC:-0.98}
-      - --out-dir
-      - /outputs/reflectance_calibration
+      - /workspaces/ros2_ws/src/mapir_camera/tools/matplotlib_roi_selector.py

@@ -27,7 +27,7 @@
     indices: [ndvi, osavi]
 
     # Band→channel preset (best-effort). Options: RGN, NGB, OCN, RGB.
-    filter_set: RGN
+    filter_set: OCN
 
     # Performance
     normalize_input: true

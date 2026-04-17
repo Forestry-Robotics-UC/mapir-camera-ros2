@@ -9,7 +9,7 @@ mkdir -p "${out_dir}"
 
 python3 /workspaces/ros2_ws/src/mapir_camera/tools/reflectance_calibration.py \
   --calibration-image /outputs/reflectance_calibration/2026_0417_153148_009.RAW \
-  --panel-config /workspaces/ros2_ws/src/mapir_camera/config/reflectance_panels.example.json \
+  --panel-config /workspaces/ros2_ws/src/mapir_camera/config/calibration_files/reflection/reflectance_panels.example.json \
   --apply-dir /outputs/reflectance_calibration/input \
   --glob "*.png" \
   --panel-min-frac "${MAPIR_REF_PANEL_MIN_FRAC:-0.02}" \

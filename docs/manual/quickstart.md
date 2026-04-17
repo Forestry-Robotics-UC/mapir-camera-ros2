@@ -1,11 +1,10 @@
 # Quickstart
 
-![RViz placeholder](../_static/rviz_placeholder.svg)
 
 ## 1) Verify the camera is visible
 
 ```bash
-v4l2-ctl --list-formats-ext -d /dev/video0
+v4l2-ctl --list-formats-ext -d /dev/mapir
 ```
 
 ## 2) Build from source (colcon)

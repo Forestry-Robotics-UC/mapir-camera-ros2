@@ -1,7 +1,5 @@
 # ROS Contract
 
-![ROS graph placeholder](../_static/ros_graph_placeholder.svg)
-
 ## Nodes
 
 - `camera_node` (python entry: `mapir_camera_ros2.camera_node`)

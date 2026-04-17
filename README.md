@@ -1,4 +1,4 @@
-# MAPIR Survey3 ROS 2 Camera Driver
+# <img src="docs/_static/fruc_logo.png" width="150" alt="FRUC logo"/>  MAPIR Survey3 ROS Camera Driver
 
 ROS 2 Jazzy camera driver for MAPIR Survey3 cameras (including OCN variants),
 implemented in Python (ament-python) using OpenCV + V4L2.
@@ -370,15 +370,16 @@ reflectance values in:
 The example panel config now defaults to the MAPIR `T4-R50` target geometry:
 each panel is `50 x 50 mm` (`2.0" x 2.0"`), based on MAPIR's product/spec page.
 For OCN captures, the default `reflectance_bgr` values are now derived from the
-local workbook `~/Downloads/MAPIR_Diffuse_Reflectance_Standard_Calibration_Target_Data_T4.xlsx`
+MAPIR workbook `MAPIR_Diffuse_Reflectance_Standard_Calibration_Target_Data_T4.xlsx`
 using the `Diffuse Reflectivity` curves at the OCN band centers
 `cyan=494 nm`, `orange=619 nm`, `nir1=823 nm`.
 The Docker reflectance workflow now defaults to the local RAW target capture at
 `config/calibration_files/reflection/2026_0417_153148_009.RAW`, using the
 existing Survey3 RAW decoder in `mapir_camera_core`.
-For panel ROI setup, the simplest workflow is the built-in OpenCV ROI selector:
-run `docker compose run --rm reflectance_calibration --select-rois-only` from
-`Docker/` and drag one box per panel to write an updated JSON config.
+For panel ROI setup, use the built-in OpenCV ROI selector:
+run `docker compose run --rm reflectance_calibration --select-rois` from
+`Docker/`. By default it writes `/tmp/reflectance_panels.selected.json`
+(override with `--panel-config-out`).
 
 Reflectance tool quality controls:
 - rejects panel ROIs outside configurable DN fraction bounds

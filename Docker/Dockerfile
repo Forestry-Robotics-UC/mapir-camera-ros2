@@ -40,7 +40,19 @@ RUN apt update \
         libegl1 \
         libxkbcommon-x11-0 \
         mesa-utils \
-        x11-apps
+        x11-apps \
+        python3-pip \
+        python3-pyqt5 \
+        python3-pyqt5.gl \
+        python3-matplotlib
+
+# Install Python image viewer libraries for interactive ROI selection
+RUN pip3 install --no-cache-dir \
+    napari \
+    pyqtgraph \
+    roipoly \
+    scikit-image \
+    pillow
 
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 

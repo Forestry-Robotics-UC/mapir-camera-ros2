@@ -12,7 +12,7 @@
   "panel_size_mm": [50.0, 50.0],
   "panel_size_in": [2.0, 2.0],
   "reflectance_curve_type": "Diffuse Reflectivity",
-  "reflectance_curve_source_file": "~/Downloads/MAPIR_Diffuse_Reflectance_Standard_Calibration_Target_Data_T4.xlsx",
+  "reflectance_curve_source_file": "MAPIR_Diffuse_Reflectance_Standard_Calibration_Target_Data_T4.xlsx (external workbook; keep local, do not commit host-specific path)",
   "reflectance_curve_band_centers_nm_ocn_bgr": [494, 619, 823],
   "panels_in_board_coordinates": [
     {

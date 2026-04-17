@@ -1,6 +1,6 @@
 # Architecture
 
-![Architecture placeholder](../_static/architecture_placeholder.svg)
+![Architecture](../_static/mapir_architecture.svg)
 
 ## Repository layout
 
