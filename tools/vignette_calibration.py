@@ -36,6 +36,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--warmup-frames', type=int, default=20)
     parser.add_argument('--blur-kernel', type=int, default=41)
     parser.add_argument('--epsilon', type=float, default=1e-3)
+    parser.add_argument(
+        '--max-clipping-fraction',
+        type=float,
+        default=0.01,
+        help='Reject captures when saturated+near-black pixel fraction exceeds this value.',
+    )
+    parser.add_argument(
+        '--max-frame-mean-cv',
+        type=float,
+        default=0.03,
+        help='Reject captures when frame-to-frame mean intensity CV exceeds this value.',
+    )
+    parser.add_argument(
+        '--max-texture-rms',
+        type=float,
+        default=0.06,
+        help='Reject captures when high-frequency texture RMS exceeds this value.',
+    )
     parser.add_argument('--out-dir', default='/outputs/vignette_calibration')
     return parser.parse_args()
 
@@ -55,6 +73,35 @@ def _write_preview(normalized: np.ndarray, path: Path) -> None:
     scaled = normalized / np.max(normalized)
     img = np.clip(scaled * 255.0, 0.0, 255.0).astype(np.uint8)
     cv2.imwrite(str(path), img)
+
+
+def _compute_quality_metrics(stack: np.ndarray, median_frame: np.ndarray) -> dict[str, float]:
+    """Return objective capture-quality metrics used to accept/reject calibration runs."""
+    if stack.ndim != 4:
+        raise ValueError('Expected stack shape (N, H, W, C)')
+
+    # Exposure stability across captured frames.
+    frame_means = np.mean(stack, axis=(1, 2, 3))
+    frame_mean_cv = float(np.std(frame_means) / max(float(np.mean(frame_means)), 1e-9))
+
+    # Near-black + near-white clipping fraction in the median frame.
+    max_value = float(np.max(stack))
+    low_clip = float(np.mean(median_frame <= 1.0))
+    high_clip = float(np.mean(median_frame >= max_value - 1.0))
+    clipping_fraction = low_clip + high_clip
+
+    # High-frequency texture score: remove low-frequency vignette trend and measure residuals.
+    median_u8 = np.clip(median_frame, 0.0, 255.0).astype(np.uint8)
+    gray = cv2.cvtColor(median_u8, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    blur = cv2.GaussianBlur(gray, (_ensure_odd(61), _ensure_odd(61)), 0)
+    residual = gray / np.maximum(blur, 1.0)
+    texture_rms = float(np.std(residual - 1.0))
+
+    return {
+        'frame_mean_cv': frame_mean_cv,
+        'clipping_fraction': clipping_fraction,
+        'texture_rms': texture_rms,
+    }
 
 
 def main() -> int:
@@ -95,6 +142,52 @@ def main() -> int:
 
     stack = np.stack(captured, axis=0).astype(np.float32)
     median_frame = np.median(stack, axis=0)
+    quality_metrics = _compute_quality_metrics(stack, median_frame)
+
+    quality_thresholds = {
+        'max_frame_mean_cv': float(args.max_frame_mean_cv),
+        'max_clipping_fraction': float(args.max_clipping_fraction),
+        'max_texture_rms': float(args.max_texture_rms),
+    }
+    quality_failures: list[str] = []
+    if quality_metrics['frame_mean_cv'] > quality_thresholds['max_frame_mean_cv']:
+        quality_failures.append(
+            f"frame_mean_cv={quality_metrics['frame_mean_cv']:.4f} > "
+            f"{quality_thresholds['max_frame_mean_cv']:.4f}"
+        )
+    if quality_metrics['clipping_fraction'] > quality_thresholds['max_clipping_fraction']:
+        quality_failures.append(
+            f"clipping_fraction={quality_metrics['clipping_fraction']:.4f} > "
+            f"{quality_thresholds['max_clipping_fraction']:.4f}"
+        )
+    if quality_metrics['texture_rms'] > quality_thresholds['max_texture_rms']:
+        quality_failures.append(
+            f"texture_rms={quality_metrics['texture_rms']:.4f} > "
+            f"{quality_thresholds['max_texture_rms']:.4f}"
+        )
+
+    if quality_failures:
+        failure_report = {
+            'frames_used': int(args.frames),
+            'shape': [int(median_frame.shape[0]), int(median_frame.shape[1]), 3],
+            'quality_metrics': quality_metrics,
+            'quality_thresholds': quality_thresholds,
+            'quality_passed': False,
+            'quality_failures': quality_failures,
+            'negotiation': {
+                'width': int(negotiation.width),
+                'height': int(negotiation.height),
+                'fps': float(negotiation.fps),
+                'fourcc': str(negotiation.fourcc_str),
+            },
+        }
+        (out_dir / 'vignette_report.json').write_text(
+            json.dumps(failure_report, indent=2), encoding='utf-8'
+        )
+        raise RuntimeError(
+            'Vignette capture quality gate failed: ' + '; '.join(quality_failures)
+        )
+
     b, g, r = cv2.split(median_frame)
 
     kernel = _ensure_odd(max(3, int(args.blur_kernel)))
@@ -149,6 +242,10 @@ def main() -> int:
             'g_min_max': [float(np.min(g_norm)), float(np.max(g_norm))],
             'r_min_max': [float(np.min(r_norm)), float(np.max(r_norm))],
         },
+        'quality_metrics': quality_metrics,
+        'quality_thresholds': quality_thresholds,
+        'quality_passed': True,
+        'quality_failures': [],
     }
     (out_dir / 'vignette_report.json').write_text(
         json.dumps(report, indent=2), encoding='utf-8'

@@ -35,7 +35,7 @@ sources before starting the camera node.
 | `gstreamer_pipeline` | `''` | Optional camera parameter override. |
 | `frame_id` | `''` | Optional camera parameter override. |
 | `camera_name` | `''` | Optional camera parameter override. |
-| `camera_info_url` | `''` | Optional camera parameter override. |
+| `camera_info_url` | `''` | Optional camera parameter override (default YAML uses `package://mapir_camera_ros2/config/mapir3_ocn_1920x1440.yaml`). |
 | `qos_best_effort` | `''` | Optional camera parameter override (`true`/`false`). |
 | `qos_depth` | `''` | Optional camera parameter override. |
 | `debug` | `false` | Camera debug logs + parameter source logs. |
@@ -70,7 +70,7 @@ sources before starting the camera node.
 | `gstreamer_pipeline` | `str` | `''` |
 | `frame_id` | `str` | `mapir3_optical_frame` |
 | `camera_name` | `str` | `mapir3_ocn` |
-| `camera_info_url` | `str` | `''` |
+| `camera_info_url` | `str` | `package://mapir_camera_ros2/config/mapir3_ocn_1920x1440.yaml` |
 | `qos_best_effort` | `bool` | `true` |
 | `qos_depth` | `int` | `5` |
 | `uvc_controls_enabled` | `bool` | `false` |

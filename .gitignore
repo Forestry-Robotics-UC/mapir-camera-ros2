@@ -214,3 +214,6 @@ tools/indices.zip
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+config/calibration_files/
+AGENTS.md
